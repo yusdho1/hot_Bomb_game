@@ -12,6 +12,7 @@ export class PeerClient {
     this.onMatchStarted = null;
     this.onStateUpdate = null;
     this.onGameOver = null;
+    this.onDisconnected = null;
     this.onError = null;
 
     this.peer.on('error', (err) => {
@@ -31,6 +32,10 @@ export class PeerClient {
       });
 
       this.conn.on('data', (message) => this._handleHostMessage(message));
+
+      this.conn.on('close', () => {
+        if (this.onDisconnected) this.onDisconnected();
+      });
 
       this.conn.on('error', (err) => {
         console.error('[PeerClient] connection error', err);

@@ -79,6 +79,16 @@ export class PeerHost {
     this._emitLobbyUpdate();
   }
 
+  // Host-only: remove a player from the lobby. Just closes their connection — the existing
+  // conn.on('close') handler (registered in the constructor) does the actual removePlayer +
+  // lobby-update broadcast, same as any other lobby-phase disconnect.
+  kickPlayer(playerId) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    if (playerId === this.peer.id) return;
+    const conn = this.connections.get(playerId);
+    if (conn) conn.close();
+  }
+
   // Host-only: begin the match.
   beginMatch() {
     if (!this.matchState || this.matchState.phase !== 'lobby') return;

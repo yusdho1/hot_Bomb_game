@@ -2,6 +2,7 @@ import { StroopPuzzle } from './StroopPuzzle.js';
 import { SwipePuzzle } from './SwipePuzzle.js';
 import { WhackAMolePuzzle } from './WhackAMolePuzzle.js';
 import { SoundManager } from '../SoundManager.js';
+import { PERSONAL_TIMER_SECONDS } from '../../core/BombState.js';
 
 const PUZZLES = [
   { titleImg: '/UI/Stroop Title.png', mount: StroopPuzzle.mount },
@@ -33,10 +34,34 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
     span.textContent = chosen.titleText;
     banner.appendChild(span);
   }
+  panel.appendChild(banner);
+
+  // Bomb sits fixed at the left; the fuse burns from the far (right) end toward it, so the
+  // flame/spark travels right-to-left and reaches the bomb exactly as bombTimer hits 0.
+  const fuseRow = document.createElement('div');
+  fuseRow.className = 'puzzle-fuse-row';
+
+  const fuseBombIcon = document.createElement('img');
+  fuseBombIcon.className = 'puzzle-fuse-bomb';
+  fuseBombIcon.src = '/UI/Bomb.png';
+  fuseBombIcon.alt = '';
+  fuseRow.appendChild(fuseBombIcon);
+
+  const fuseRope = document.createElement('div');
+  fuseRope.className = 'puzzle-fuse-rope';
+  const fuseBurnt = document.createElement('div');
+  fuseBurnt.className = 'puzzle-fuse-burnt';
+  const fuseSpark = document.createElement('div');
+  fuseSpark.className = 'puzzle-fuse-spark';
+  fuseBurnt.appendChild(fuseSpark);
+  fuseRope.appendChild(fuseBurnt);
+
   const timerEl = document.createElement('span');
   timerEl.className = 'puzzle-timer';
-  banner.appendChild(timerEl);
-  panel.appendChild(banner);
+  fuseRope.appendChild(timerEl);
+
+  fuseRow.appendChild(fuseRope);
+  panel.appendChild(fuseRow);
 
   const dotsEl = document.createElement('div');
   dotsEl.className = 'puzzle-dots';
@@ -52,11 +77,6 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
   contentEl.className = 'puzzle-content';
   panel.appendChild(contentEl);
 
-  const flashIcon = document.createElement('img');
-  flashIcon.className = 'puzzle-attempt-flash';
-  flashIcon.alt = '';
-  contentEl.appendChild(flashIcon);
-
   const logo = document.createElement('img');
   logo.className = 'puzzle-footer-logo';
   logo.src = '/UI/Main Title.png';
@@ -65,18 +85,9 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
 
   containerEl.appendChild(panel);
 
-  let flashTimeout = null;
-  function showAttemptFlash(success) {
-    clearTimeout(flashTimeout);
-    flashIcon.src = success ? '/UI/Sprites/IconCheckmarkYellow.png' : '/UI/Sprites/IconCloseXRed.png';
-    flashIcon.classList.add('show');
-    flashTimeout = setTimeout(() => flashIcon.classList.remove('show'), 350);
-  }
-
   function wrappedOnAttempt(success) {
     if (success) SoundManager.playSmallSuccess();
     else SoundManager.playSmallFailed();
-    showAttemptFlash(success);
     onAttempt(success);
   }
 
@@ -84,13 +95,15 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
 
   return {
     updateTimer(seconds) {
-      timerEl.textContent = `${Math.max(0, seconds).toFixed(1)}s`;
+      const clamped = Math.max(0, seconds);
+      timerEl.textContent = `${clamped.toFixed(1)}s`;
+      const burntPct = (1 - clamped / PERSONAL_TIMER_SECONDS) * 100;
+      fuseBurnt.style.width = `${Math.min(100, Math.max(0, burntPct))}%`;
     },
     updateStreak(count) {
       dots.forEach((dot, i) => dot.classList.toggle('filled', i < count));
     },
     unmount() {
-      clearTimeout(flashTimeout);
       if (puzzleHandle && puzzleHandle.unmount) puzzleHandle.unmount();
       containerEl.innerHTML = '';
     },

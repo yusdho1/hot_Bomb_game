@@ -12,7 +12,8 @@ import { randomAvatarParts, loadSavedAvatarParts, saveAvatarParts } from './rend
 const nameInputEl = document.getElementById('name-input');
 const entryEl = document.getElementById('entry');
 const roomEl = document.getElementById('room');
-const roomCodeDisplayEl = document.getElementById('room-code-display');
+const roomCodeTextEl = document.getElementById('room-code-text');
+const roomCodeCopyBtn = document.getElementById('room-code-copy-btn');
 const playerListEl = document.getElementById('player-list');
 const hostControlsEl = document.getElementById('host-controls');
 const durationMinusBtn = document.getElementById('duration-minus-btn');
@@ -67,6 +68,7 @@ let vibratedThresholds = new Set();
 let avatarCreatorHandle = null;
 let currentAvatarParts = loadSavedAvatarParts() || randomAvatarParts();
 let matchDurationSeconds = 60;
+let currentRoomCode = null;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
 
@@ -91,9 +93,21 @@ function getLocalName() {
 function enterRoom(roomCode, isHost) {
   entryEl.classList.add('hidden');
   roomEl.classList.remove('hidden');
-  roomCodeDisplayEl.textContent = `Room Code: ${roomCode}`;
+  currentRoomCode = roomCode;
+  roomCodeTextEl.textContent = `Room Code: ${roomCode}`;
   hostControlsEl.classList.toggle('hidden', !isHost);
   clientWaitingEl.classList.toggle('hidden', isHost);
+}
+
+function resetToEntry(message) {
+  roomEl.classList.add('hidden');
+  entryEl.classList.remove('hidden');
+  lobbyStatusEl.textContent = message || '';
+  role = null;
+  host = null;
+  client = null;
+  localPlayerId = null;
+  currentRoomCode = null;
 }
 
 function renderLobbyPlayers(players, matchDurationSeconds) {
@@ -107,9 +121,21 @@ function renderLobbyPlayers(players, matchDurationSeconds) {
     li.appendChild(thumb);
 
     const nameSpan = document.createElement('span');
+    nameSpan.className = 'player-name';
     const displayName = player.name || 'Player';
     nameSpan.textContent = player.id === localPlayerId ? `${displayName} (You)` : displayName;
     li.appendChild(nameSpan);
+
+    if (role === 'host' && player.id !== localPlayerId) {
+      const kickBtn = document.createElement('button');
+      kickBtn.className = 'player-kick-btn';
+      kickBtn.type = 'button';
+      kickBtn.title = 'Kick player';
+      kickBtn.addEventListener('click', () => {
+        if (host) host.kickPlayer(player.id);
+      });
+      li.appendChild(kickBtn);
+    }
 
     playerListEl.appendChild(li);
   });
@@ -313,6 +339,27 @@ avatarCreatorXBtn.addEventListener('click', () => {
   if (avatarCreatorHandle) avatarCreatorHandle.cancel();
 });
 
+// --- Room code copy ---
+
+let copyResetTimeout = null;
+roomCodeCopyBtn.addEventListener('click', async () => {
+  if (!currentRoomCode) return;
+  try {
+    await navigator.clipboard.writeText(currentRoomCode);
+  } catch {
+    // Clipboard API can be unavailable (insecure context, denied permission) — nothing to
+    // recover here, the button just won't show the "copied" confirmation.
+    return;
+  }
+  roomCodeCopyBtn.textContent = '✅';
+  roomCodeCopyBtn.classList.add('copied');
+  clearTimeout(copyResetTimeout);
+  copyResetTimeout = setTimeout(() => {
+    roomCodeCopyBtn.textContent = '📋';
+    roomCodeCopyBtn.classList.remove('copied');
+  }, 1200);
+});
+
 // --- Join popup ---
 
 joinBtn.addEventListener('click', () => {
@@ -351,6 +398,12 @@ joinConfirmBtn.addEventListener('click', () => {
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
   client.onGameOver = (result) => showGameOver(result);
+  client.onDisconnected = () => {
+    // Only relevant while still in the lobby (e.g. host kicked us) — a mid-match drop is
+    // already handled by the host's own elimination-on-disconnect logic.
+    if (!gameEl.classList.contains('hidden')) return;
+    resetToEntry('Disconnected from the host.');
+  };
   client.onError = (err) => {
     joinModalStatusEl.textContent = `Connection failed: ${err.message ?? err.type}`;
   };

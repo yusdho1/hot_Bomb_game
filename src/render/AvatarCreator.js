@@ -1,6 +1,5 @@
 import { AVATAR_CATEGORIES } from './avatarOptions.js';
 import { renderAvatar } from './AvatarRenderer.js';
-import { SoundManager } from './SoundManager.js';
 
 const SPAWN_INTERVAL_MS = 900;
 const FALL_SPEED_PX_PER_SEC = 90;
@@ -72,7 +71,6 @@ export function mountAvatarCreator({ zoneEl, previewEl, initialParts, onSave, on
       if (overlapsX && overlapsY) {
         draft[item.category] = item.variant;
         updatePreview();
-        SoundManager.playSmallSuccess();
         item.el.remove();
         return false;
       }
