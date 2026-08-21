@@ -15,7 +15,9 @@ const roomEl = document.getElementById('room');
 const roomCodeDisplayEl = document.getElementById('room-code-display');
 const playerListEl = document.getElementById('player-list');
 const hostControlsEl = document.getElementById('host-controls');
-const durationSelectEl = document.getElementById('duration-select');
+const durationMinusBtn = document.getElementById('duration-minus-btn');
+const durationPlusBtn = document.getElementById('duration-plus-btn');
+const durationValueEl = document.getElementById('duration-value');
 const startBtn = document.getElementById('start-btn');
 const clientWaitingEl = document.getElementById('client-waiting');
 const lobbyStatusEl = document.getElementById('lobby-status');
@@ -47,6 +49,11 @@ const avatarCreatorPreviewEl = document.getElementById('avatar-creator-preview')
 const catchZoneEl = document.getElementById('catch-zone');
 const avatarSaveBtn = document.getElementById('avatar-save-btn');
 const avatarCancelBtn = document.getElementById('avatar-cancel-btn');
+const joinModalXBtn = document.getElementById('join-modal-x-btn');
+const avatarCreatorXBtn = document.getElementById('avatar-creator-x-btn');
+const gameOverShieldImgEl = document.getElementById('game-over-shield-img');
+
+const DURATION_STEPS = [30, 60, 90, 120];
 
 let role = null; // 'host' | 'client'
 let host = null;
@@ -59,6 +66,7 @@ let puzzleHandle = null;
 let vibratedThresholds = new Set();
 let avatarCreatorHandle = null;
 let currentAvatarParts = loadSavedAvatarParts() || randomAvatarParts();
+let matchDurationSeconds = 60;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
 
@@ -106,11 +114,16 @@ function renderLobbyPlayers(players, matchDurationSeconds) {
     playerListEl.appendChild(li);
   });
 
-  if (durationSelectEl.value !== String(matchDurationSeconds)) {
-    durationSelectEl.value = String(matchDurationSeconds);
-  }
+  setDurationDisplay(matchDurationSeconds);
   clientWaitingEl.textContent = `Waiting for host to start... (Match length: ${matchDurationSeconds}s)`;
   startBtn.disabled = players.length < 2;
+}
+
+function setDurationDisplay(seconds) {
+  matchDurationSeconds = seconds;
+  durationValueEl.textContent = `${seconds}s`;
+  durationMinusBtn.disabled = seconds <= DURATION_STEPS[0];
+  durationPlusBtn.disabled = seconds >= DURATION_STEPS[DURATION_STEPS.length - 1];
 }
 
 function startGame(matchState) {
@@ -242,6 +255,7 @@ function showGameOver({ winners, loserId }) {
   const youWon = winners.includes(localPlayerId);
   gameOverLossImgEl.classList.toggle('hidden', youWon);
   gameOverTitleEl.classList.toggle('hidden', !youWon);
+  gameOverShieldImgEl.classList.toggle('hidden', !youWon);
 
   if (youWon) {
     gameOverTitleEl.textContent = 'YOU SURVIVED! \u{1F3C6}';
@@ -295,6 +309,10 @@ avatarCancelBtn.addEventListener('click', () => {
   if (avatarCreatorHandle) avatarCreatorHandle.cancel();
 });
 
+avatarCreatorXBtn.addEventListener('click', () => {
+  if (avatarCreatorHandle) avatarCreatorHandle.cancel();
+});
+
 // --- Join popup ---
 
 joinBtn.addEventListener('click', () => {
@@ -305,6 +323,10 @@ joinBtn.addEventListener('click', () => {
 });
 
 joinModalCloseBtn.addEventListener('click', () => {
+  joinModalEl.classList.add('hidden');
+});
+
+joinModalXBtn.addEventListener('click', () => {
   joinModalEl.classList.add('hidden');
 });
 
@@ -340,9 +362,16 @@ joinConfirmBtn.addEventListener('click', () => {
 
 playAgainBtn.addEventListener('click', () => location.reload());
 
-durationSelectEl.addEventListener('change', () => {
-  if (role === 'host' && host) host.setMatchDuration(Number(durationSelectEl.value));
-});
+function stepDuration(delta) {
+  const currentIndex = DURATION_STEPS.indexOf(matchDurationSeconds);
+  const nextIndex = Math.max(0, Math.min(DURATION_STEPS.length - 1, currentIndex + delta));
+  const nextSeconds = DURATION_STEPS[nextIndex];
+  setDurationDisplay(nextSeconds);
+  if (role === 'host' && host) host.setMatchDuration(nextSeconds);
+}
+
+durationMinusBtn.addEventListener('click', () => stepDuration(-1));
+durationPlusBtn.addEventListener('click', () => stepDuration(1));
 
 startBtn.addEventListener('click', () => {
   if (role === 'host' && host) host.beginMatch();

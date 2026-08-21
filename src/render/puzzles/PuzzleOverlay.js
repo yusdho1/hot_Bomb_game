@@ -52,6 +52,11 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
   contentEl.className = 'puzzle-content';
   panel.appendChild(contentEl);
 
+  const flashIcon = document.createElement('img');
+  flashIcon.className = 'puzzle-attempt-flash';
+  flashIcon.alt = '';
+  contentEl.appendChild(flashIcon);
+
   const logo = document.createElement('img');
   logo.className = 'puzzle-footer-logo';
   logo.src = '/UI/Main Title.png';
@@ -60,9 +65,18 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
 
   containerEl.appendChild(panel);
 
+  let flashTimeout = null;
+  function showAttemptFlash(success) {
+    clearTimeout(flashTimeout);
+    flashIcon.src = success ? '/UI/Sprites/IconCheckmarkYellow.png' : '/UI/Sprites/IconCloseXRed.png';
+    flashIcon.classList.add('show');
+    flashTimeout = setTimeout(() => flashIcon.classList.remove('show'), 350);
+  }
+
   function wrappedOnAttempt(success) {
     if (success) SoundManager.playSmallSuccess();
     else SoundManager.playSmallFailed();
+    showAttemptFlash(success);
     onAttempt(success);
   }
 
@@ -76,6 +90,7 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
       dots.forEach((dot, i) => dot.classList.toggle('filled', i < count));
     },
     unmount() {
+      clearTimeout(flashTimeout);
       if (puzzleHandle && puzzleHandle.unmount) puzzleHandle.unmount();
       containerEl.innerHTML = '';
     },
