@@ -1,0 +1,629 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Timeout Panic</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --font-display: 'Baloo 2', system-ui, sans-serif;
+        --panel-bg: rgba(22, 16, 48, 0.8);
+        --panel-border: #5b4bb8;
+        --accent-orange-top: #ffe066;
+        --accent-orange-bottom: #ff8800;
+        --accent-orange-border: #7a3b12;
+        --text-outline: #7a1010;
+      }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: system-ui, sans-serif;
+        color: #f2f2f2;
+        background:
+          radial-gradient(circle at 15% 20%, rgba(255, 255, 255, 0.09) 0%, transparent 40%),
+          radial-gradient(circle at 85% 15%, rgba(255, 255, 255, 0.07) 0%, transparent 35%),
+          radial-gradient(circle at 25% 85%, rgba(255, 255, 255, 0.06) 0%, transparent 30%),
+          radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 30%),
+          linear-gradient(180deg, #3b4cca 0%, #6a2fb0 55%, #7a2fb0 100%);
+        background-attachment: fixed;
+      }
+      #lobby {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 24px;
+        background: var(--panel-bg);
+        border: 2px solid var(--panel-border);
+        border-radius: 16px;
+        width: 90vw;
+        max-width: 340px;
+        box-sizing: border-box;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+      #main-title-img {
+        width: 100%;
+        max-width: 300px;
+        display: block;
+        margin: 0 auto 6px;
+      }
+      #lobby button,
+      #lobby input,
+      #lobby select {
+        padding: 10px 14px;
+        border-radius: 10px;
+        border: 1px solid #3a3d4a;
+        background: #262936;
+        color: #f2f2f2;
+        font-size: 15px;
+        font-family: inherit;
+      }
+      #lobby button {
+        cursor: pointer;
+        min-height: 46px;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 17px;
+      }
+      .btn-primary {
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        border: 3px solid var(--accent-orange-border) !important;
+        color: #7a2000;
+        text-shadow: 0 1px 0 rgba(255, 255, 255, 0.4);
+        box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 10px rgba(0, 0, 0, 0.3);
+        transition: transform 0.05s ease;
+      }
+      .btn-primary:hover {
+        background: linear-gradient(180deg, #fff2b8 0%, #ff9d1f 100%);
+        box-shadow: 0 5px 0 var(--accent-orange-border), 0 8px 14px rgba(0, 0, 0, 0.35);
+      }
+      .btn-primary:active {
+        transform: translateY(3px);
+        box-shadow: 0 1px 0 var(--accent-orange-border);
+      }
+      .btn-primary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 10px rgba(0, 0, 0, 0.3);
+      }
+      .btn-secondary {
+        background: rgba(255, 255, 255, 0.08) !important;
+        border: 2px solid var(--panel-border) !important;
+        color: #f2f2f2 !important;
+        text-shadow: none !important;
+        box-shadow: none !important;
+      }
+      .btn-secondary:hover {
+        background: rgba(255, 255, 255, 0.18) !important;
+      }
+      .btn-secondary:active {
+        transform: translateY(2px);
+      }
+      .btn-secondary:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+      #join-code {
+        width: 100%;
+        text-align: center;
+        text-transform: uppercase;
+        box-sizing: border-box;
+      }
+      #name-input {
+        text-align: center;
+      }
+      .avatar-stack {
+        position: relative;
+        border-radius: 50%;
+        overflow: hidden;
+        flex-shrink: 0;
+      }
+      .avatar-layer {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      .avatar-preview-lg {
+        width: 84px;
+        height: 84px;
+        border: 3px solid var(--accent-orange-border);
+      }
+      .avatar-thumb-sm {
+        width: 30px;
+        height: 30px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+      }
+      #avatar-row {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 12px;
+      }
+      #avatar-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      #avatar-actions button {
+        min-height: 38px;
+        min-width: 48px;
+        padding: 6px 10px;
+        font-size: 20px;
+      }
+      #lobby-status {
+        min-height: 20px;
+        font-size: 13px;
+        color: #cfc9f0;
+      }
+      #room-code-display {
+        font-size: 15px;
+        letter-spacing: 1px;
+        color: #cfc9f0;
+        font-family: var(--font-display);
+      }
+      #player-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #player-list li {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 6px 10px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        border-radius: 8px;
+        font-size: 14px;
+      }
+      #host-controls {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      #duration-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #client-waiting {
+        font-size: 14px;
+        color: #cfc9f0;
+      }
+      .hidden {
+        display: none !important;
+      }
+      #game-container {
+        position: relative;
+        width: 100vw;
+        max-width: 800px;
+        aspect-ratio: 800 / 500;
+        line-height: 0;
+        border-radius: 12px;
+        overflow: hidden;
+      }
+      #elimination-toast {
+        position: absolute;
+        top: 70px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-10px);
+        background: rgba(20, 10, 10, 0.88);
+        border: 2px solid #ff4444;
+        border-radius: 10px;
+        padding: 8px 18px;
+        font-family: var(--font-display);
+        font-weight: 700;
+        color: #ffdd55;
+        font-size: 15px;
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        z-index: 5;
+      }
+      #elimination-toast.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #puzzle-overlay {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(10, 10, 14, 0.55);
+      }
+      .puzzle-panel {
+        width: 88%;
+        max-width: 300px;
+        max-height: 92%;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 14px 10px;
+        border-radius: 20px;
+        border: 2px solid var(--panel-border);
+        background: radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.1) 0%, transparent 35%),
+          radial-gradient(circle at 80% 75%, rgba(255, 255, 255, 0.08) 0%, transparent 35%),
+          linear-gradient(180deg, #2a3fc7 0%, #6a2fb0 100%);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        box-sizing: border-box;
+      }
+      .puzzle-banner {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        padding: 6px 10px;
+        border-radius: 14px;
+        background: repeating-linear-gradient(135deg, #ff8800, #ff8800 10px, #e67300 10px, #e67300 20px);
+        border: 3px solid var(--accent-orange-border);
+        box-sizing: border-box;
+      }
+      .puzzle-banner img {
+        height: 32px;
+        display: block;
+      }
+      .puzzle-title-text {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 20px;
+        color: #fff5cc;
+        text-shadow: 2px 2px 0 var(--text-outline), -2px -2px 0 var(--text-outline), 2px -2px 0 var(--text-outline),
+          -2px 2px 0 var(--text-outline);
+      }
+      .puzzle-timer {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 18px;
+        color: #fff5cc;
+        text-shadow: 1px 1px 0 var(--text-outline);
+        white-space: nowrap;
+      }
+      .puzzle-dots {
+        display: flex;
+        gap: 10px;
+      }
+      .puzzle-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #5a1414;
+        border: 2px solid rgba(255, 255, 255, 0.35);
+        box-sizing: border-box;
+      }
+      .puzzle-dot.filled {
+        background: #ff3b3b;
+        box-shadow: 0 0 8px #ff3b3b;
+      }
+      .puzzle-content {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+      }
+      .puzzle-footer-logo {
+        width: 65%;
+        max-width: 170px;
+        margin-top: 2px;
+      }
+      .puzzle-prompt {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 16px;
+        color: #ffdd55;
+        text-align: center;
+        text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      .stroop-word {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 30px;
+        text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
+      }
+      .stroop-grid {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .stroop-btn {
+        min-height: 48px;
+        border-radius: 10px;
+        border: 3px solid rgba(0, 0, 0, 0.35);
+        cursor: pointer;
+      }
+      .swipe-zone {
+        width: 100%;
+        min-height: 140px;
+        border-radius: 14px;
+        border: 3px dashed rgba(255, 255, 255, 0.4);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-family: var(--font-display);
+        font-size: 40px;
+        color: rgba(255, 255, 255, 0.7);
+        touch-action: none;
+        user-select: none;
+      }
+      .mole-grid {
+        width: 100%;
+        aspect-ratio: 1 / 1;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .mole-hole {
+        aspect-ratio: 1 / 1;
+        border-radius: 50%;
+        background: rgba(0, 0, 0, 0.35);
+        border: 2px solid rgba(255, 255, 255, 0.2);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+      }
+      .mole-hole img {
+        width: 70%;
+        height: 70%;
+        object-fit: contain;
+      }
+      #game-over-panel {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: rgba(10, 10, 14, 0.85);
+        padding: 0 16px;
+        box-sizing: border-box;
+      }
+      #game-over-loss-img {
+        max-width: 85%;
+      }
+      #game-over-title {
+        font-family: var(--font-display);
+        font-size: 30px;
+        font-weight: 700;
+        text-align: center;
+        color: #ffdd55;
+        text-shadow: 2px 2px 0 var(--text-outline), -2px -2px 0 var(--text-outline), 2px -2px 0 var(--text-outline),
+          -2px 2px 0 var(--text-outline), 0 3px 6px rgba(0, 0, 0, 0.4);
+      }
+      @keyframes shake-small {
+        0%,
+        100% {
+          transform: translate(0, 0);
+        }
+        20% {
+          transform: translate(-4px, 2px);
+        }
+        40% {
+          transform: translate(4px, -2px);
+        }
+        60% {
+          transform: translate(-3px, -2px);
+        }
+        80% {
+          transform: translate(3px, 2px);
+        }
+      }
+      @keyframes shake-big {
+        0%,
+        100% {
+          transform: translate(0, 0);
+        }
+        10% {
+          transform: translate(-10px, 4px);
+        }
+        20% {
+          transform: translate(10px, -6px);
+        }
+        30% {
+          transform: translate(-8px, 6px);
+        }
+        40% {
+          transform: translate(8px, -4px);
+        }
+        50% {
+          transform: translate(-6px, 4px);
+        }
+        60% {
+          transform: translate(6px, -6px);
+        }
+        70% {
+          transform: translate(-4px, 4px);
+        }
+        80% {
+          transform: translate(4px, -2px);
+        }
+        90% {
+          transform: translate(-2px, 2px);
+        }
+      }
+      #game-container.shake-small {
+        animation: shake-small 0.2s ease;
+      }
+      #game-container.shake-big {
+        animation: shake-big 0.45s ease;
+      }
+      @keyframes pop-in {
+        0% {
+          transform: scale(0.7);
+          opacity: 0;
+        }
+        70% {
+          transform: scale(1.05);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      #game-over-panel > * {
+        animation: pop-in 0.35s ease;
+      }
+      .modal-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 50;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(8, 6, 20, 0.72);
+        padding: 16px;
+        box-sizing: border-box;
+      }
+      .modal-overlay .puzzle-panel {
+        animation: pop-in 0.25s ease;
+      }
+      .modal-title {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 20px;
+        color: #ffdd55;
+        text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      #join-modal-status {
+        min-height: 18px;
+        font-size: 13px;
+        color: #cfc9f0;
+        text-align: center;
+      }
+      .avatar-creator-panel {
+        max-width: 320px;
+      }
+      .catch-zone {
+        position: relative;
+        width: 100%;
+        height: 240px;
+        border-radius: 14px;
+        border: 2px solid var(--panel-border);
+        background: rgba(0, 0, 0, 0.28);
+        overflow: hidden;
+        touch-action: none;
+      }
+      .falling-item {
+        position: absolute;
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        pointer-events: none;
+      }
+      .catch-basket {
+        position: absolute;
+        bottom: 8px;
+        width: 64px;
+        height: 36px;
+        background: linear-gradient(180deg, var(--accent-orange-top), var(--accent-orange-bottom));
+        border: 3px solid var(--accent-orange-border);
+        border-radius: 0 0 16px 16px;
+        transform: translateX(-50%);
+        pointer-events: none;
+      }
+      .avatar-creator-actions {
+        display: flex;
+        gap: 10px;
+        width: 100%;
+      }
+      .avatar-creator-actions button {
+        flex: 1;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="lobby">
+      <img id="main-title-img" src="/UI/Main Title.png" alt="Timeout Panic - Pass or Blast" />
+
+      <div id="entry">
+        <div id="avatar-row">
+          <div id="avatar-preview" class="avatar-stack avatar-preview-lg"></div>
+          <div id="avatar-actions">
+            <button id="avatar-random-btn" class="btn-secondary" title="Random avatar">🎲</button>
+            <button id="avatar-customize-btn" class="btn-secondary" title="Customize avatar">✏️</button>
+          </div>
+        </div>
+        <input id="name-input" maxlength="14" placeholder="Your name" />
+        <button id="host-btn" class="btn-primary">Host Game</button>
+        <button id="join-btn" class="btn-primary">Join Game</button>
+      </div>
+
+      <div id="room" class="hidden">
+        <div id="room-code-display"></div>
+        <ul id="player-list"></ul>
+
+        <div id="host-controls" class="hidden">
+          <div id="duration-row">
+            <label for="duration-select">Match length</label>
+            <select id="duration-select">
+              <option value="30">30s</option>
+              <option value="60" selected>60s</option>
+              <option value="90">90s</option>
+              <option value="120">120s</option>
+            </select>
+          </div>
+          <button id="start-btn" class="btn-primary" disabled>Start Game</button>
+        </div>
+
+        <div id="client-waiting" class="hidden"></div>
+      </div>
+
+      <div id="lobby-status"></div>
+    </div>
+
+    <div id="game-container" class="hidden">
+      <div id="elimination-toast"></div>
+      <div id="puzzle-overlay" class="hidden"></div>
+      <div id="game-over-panel" class="hidden">
+        <img id="game-over-loss-img" class="hidden" src="/UI/blewup.png" alt="You blew up" />
+        <div id="game-over-title" class="hidden"></div>
+        <button id="play-again-btn" class="btn-primary">Play Again</button>
+      </div>
+    </div>
+
+    <div id="join-modal" class="modal-overlay hidden">
+      <div class="puzzle-panel">
+        <div class="modal-title">Join Game</div>
+        <input id="join-code" maxlength="4" placeholder="CODE" />
+        <button id="join-confirm-btn" class="btn-primary">Join</button>
+        <div id="join-modal-status"></div>
+        <button id="join-modal-close-btn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <div id="avatar-creator-modal" class="modal-overlay hidden">
+      <div class="puzzle-panel avatar-creator-panel">
+        <div class="modal-title">Customize Avatar</div>
+        <div id="avatar-creator-preview" class="avatar-stack avatar-preview-lg"></div>
+        <div id="catch-zone" class="catch-zone">
+          <div id="catch-basket" class="catch-basket"></div>
+        </div>
+        <div class="avatar-creator-actions">
+          <button id="avatar-save-btn" class="btn-primary">Save</button>
+          <button id="avatar-cancel-btn" class="btn-secondary">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>
