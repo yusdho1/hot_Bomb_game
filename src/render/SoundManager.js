@@ -20,9 +20,10 @@ function getAudio(key) {
   return audioCache[key];
 }
 
-function playOneShot(key) {
+function playOneShot(key, pitchVariance = 0) {
   const audio = getAudio(key);
   audio.currentTime = 0;
+  audio.playbackRate = pitchVariance > 0 ? 1 + (Math.random() * 2 - 1) * pitchVariance : 1;
   audio.play().catch(() => {});
 }
 
@@ -71,8 +72,9 @@ export const SoundManager = {
   stopPersonalAlarm: () => stopLoop('personalAlarm'),
 
   playBombExplode: () => playOneShot('bombExplode'),
-  playSmallSuccess: () => playOneShot('smallSuccess'),
-  playSmallFailed: () => playOneShot('smallFailed'),
+  // Small ±8% pitch variance so repeated attempts don't sound identical every time.
+  playSmallSuccess: () => playOneShot('smallSuccess', 0.08),
+  playSmallFailed: () => playOneShot('smallFailed', 0.08),
   playWin: () => playOneShot('win'),
   playTap: () => playOneShot('tap'),
 };

@@ -1,7 +1,8 @@
 const GRID_SIZE = 5;
 const NUM_CHECKPOINTS = 6;
-const CELL_PX = 42;
 const BRIDGE_PX = 8;
+const MAX_CELL_PX = 64;
+const MIN_CELL_PX = 32;
 const MAX_DFS_STEPS = 200000;
 
 function key(r, c) {
@@ -129,9 +130,17 @@ export const ZipPuzzle = {
     hint.textContent = `Connect 1→6, fill every tile!`;
     panel.appendChild(hint);
 
+    // Size the grid off the overlay's real available width instead of a fixed constant, so it
+    // actually grows to use the extra room a portrait phone gives it rather than staying tiny.
+    const containerWidth = containerEl.clientWidth || 320;
+    const panelWidth = Math.min(containerWidth * 0.92, 420);
+    const gridAvailable = panelWidth - 28; // panel's own left+right padding
+    const rawCell = (gridAvailable - (GRID_SIZE - 1) * BRIDGE_PX) / GRID_SIZE;
+    const cellPx = Math.max(MIN_CELL_PX, Math.min(MAX_CELL_PX, Math.floor(rawCell)));
+
     const gridEl = document.createElement('div');
     gridEl.className = 'zip-grid-wrap';
-    const tracks = Array.from({ length: 2 * GRID_SIZE - 1 }, (_, i) => `${i % 2 === 0 ? CELL_PX : BRIDGE_PX}px`).join(
+    const tracks = Array.from({ length: 2 * GRID_SIZE - 1 }, (_, i) => `${i % 2 === 0 ? cellPx : BRIDGE_PX}px`).join(
       ' '
     );
     gridEl.style.gridTemplateColumns = tracks;

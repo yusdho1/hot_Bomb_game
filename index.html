@@ -412,6 +412,19 @@
         border-radius: 12px;
         overflow: hidden;
       }
+      /* Portrait phones: the 800x500 landscape ratio above would squash the board into a thin
+         strip and starve the puzzle overlays of height, forcing them to scroll. Let the
+         container use the real viewport instead — Phaser's FIT scale mode still letterboxes the
+         800x500 board correctly within whatever shape we give it. */
+      @media (max-width: 700px) and (orientation: portrait) {
+        #game-container {
+          width: 100vw;
+          height: 100dvh;
+          max-width: none;
+          aspect-ratio: auto;
+          border-radius: 0;
+        }
+      }
       #elimination-toast {
         position: absolute;
         top: 60px;
@@ -455,15 +468,15 @@
       }
       @keyframes tomato-splat {
         0% {
-          transform: scale(0.3) rotate(-15deg);
+          transform: scale(0.3) rotate(calc(var(--tomato-rot, 0deg) - 30deg));
           opacity: 0;
         }
         60% {
-          transform: scale(1.15) rotate(8deg);
+          transform: scale(1.15) rotate(calc(var(--tomato-rot, 0deg) + 15deg));
           opacity: 1;
         }
         100% {
-          transform: scale(1) rotate(0deg);
+          transform: scale(1) rotate(var(--tomato-rot, 0deg));
           opacity: 1;
         }
       }
@@ -631,6 +644,15 @@
         background-repeat: repeat, repeat, no-repeat;
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         box-sizing: border-box;
+      }
+      /* Let the in-match puzzle panels actually use the extra room #game-container now gets on
+         portrait phones, instead of staying pinned to a small desktop-sized card. */
+      @media (max-width: 700px) and (orientation: portrait) {
+        #puzzle-overlay .puzzle-panel,
+        .zip-panel {
+          width: 94vw;
+          max-width: 420px;
+        }
       }
       .zip-banner {
         font-family: var(--font-display);

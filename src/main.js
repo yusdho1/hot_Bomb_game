@@ -350,14 +350,23 @@ function checkZipStain(matchState) {
 }
 
 function showTomatoStain(durationSeconds) {
+  // Land it on the puzzle panel itself (what the holder is actually looking at), not anywhere
+  // in the letterboxed game-container around it.
+  const panelEl = puzzleOverlayEl.querySelector('.puzzle-panel') || gameEl;
+  const panelRect = panelEl.getBoundingClientRect();
+  const gameRect = gameEl.getBoundingClientRect();
+  const offsetX = panelRect.left - gameRect.left;
+  const offsetY = panelRect.top - gameRect.top;
+  const maxX = Math.max(0, panelRect.width - TOMATO_STAIN_PX);
+  const maxY = Math.max(0, panelRect.height - TOMATO_STAIN_PX);
+
   const stain = document.createElement('img');
   stain.src = '/UI/Sprites/Tomato_Stain.png';
   stain.alt = '';
   stain.className = 'tomato-stain';
-  const maxX = Math.max(0, gameEl.clientWidth - TOMATO_STAIN_PX);
-  const maxY = Math.max(0, gameEl.clientHeight - TOMATO_STAIN_PX);
-  stain.style.left = `${Math.random() * maxX}px`;
-  stain.style.top = `${Math.random() * maxY}px`;
+  stain.style.left = `${offsetX + Math.random() * maxX}px`;
+  stain.style.top = `${offsetY + Math.random() * maxY}px`;
+  stain.style.setProperty('--tomato-rot', `${Math.random() * 360}deg`);
   gameEl.appendChild(stain);
   setTimeout(() => stain.remove(), Math.max(200, durationSeconds * 1000));
 }
