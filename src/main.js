@@ -85,6 +85,34 @@ let currentRoomCode = null;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
 
+// Drives #game-container's real pixel size on portrait phones via JS rather than trusting CSS
+// viewport units alone (dvh support/behavior is inconsistent across mobile browsers — when it
+// silently fails, the whole height rule is dropped and the container collapses to its content
+// size, which is exactly the "small floating box" bug). Phaser's FIT scale mode reads the
+// parent's size to fit its fixed 800x500 canvas into, so this needs to run — and Phaser needs to
+// re-fit — every time the real viewport changes (resize, rotation, mobile address-bar show/hide).
+const MOBILE_PORTRAIT_QUERY = window.matchMedia('(max-width: 700px) and (orientation: portrait)');
+
+function syncGameContainerSize() {
+  if (MOBILE_PORTRAIT_QUERY.matches) {
+    const vv = window.visualViewport;
+    const width = vv ? vv.width : window.innerWidth;
+    const height = vv ? vv.height : window.innerHeight;
+    gameEl.style.width = `${width}px`;
+    gameEl.style.height = `${height}px`;
+  } else {
+    gameEl.style.width = '';
+    gameEl.style.height = '';
+  }
+  if (phaserGame) phaserGame.scale.refresh();
+}
+
+window.addEventListener('resize', syncGameContainerSize);
+window.addEventListener('orientationchange', syncGameContainerSize);
+if (window.visualViewport) {
+  window.visualViewport.addEventListener('resize', syncGameContainerSize);
+}
+
 function triggerShake(className) {
   gameEl.classList.remove('shake-small', 'shake-big');
   void gameEl.offsetWidth; // reflow so the animation restarts even if the same class re-applies
@@ -190,6 +218,7 @@ function startGame(matchState) {
   lobbyEl.classList.add('hidden');
   gameEl.classList.remove('hidden');
   lastMatchState = matchState;
+  syncGameContainerSize();
 
   phaserGame = new Phaser.Game({
     type: Phaser.AUTO,
