@@ -3,6 +3,7 @@ const SOUND_FILES = {
   passBombMusic: '/Sounds/pass the bomb 10 sec music.wav',
   globalTicking: '/Sounds/clock-ticking-down SFX2.mp3',
   alarm: '/Sounds/Alarm SFX.mp3',
+  personalAlarm: '/Sounds/Alarm SFX.mp3',
   bombExplode: '/Sounds/bomb explode.wav',
   smallSuccess: '/Sounds/smallsucsses.mp3',
   smallFailed: '/Sounds/small failed.mp3',
@@ -53,7 +54,6 @@ export const SoundManager = {
   playGlobalTicking: () => playLoop('globalTicking'),
   stopGlobalTicking: () => stopLoop('globalTicking'),
   setGlobalTickingRate: (rate) => setRate('globalTicking', rate),
-  setPersonalMusicRate: (rate) => setRate('passBombMusic', rate),
 
   // Fires once per match — call resetAlarm() when a new match starts.
   playAlarmOnce: () => {
@@ -64,6 +64,11 @@ export const SoundManager = {
   resetAlarm: () => {
     alarmPlayed = false;
   },
+
+  // Loops for the local holder once their personal fuse hits the last few seconds — a distinct
+  // instance from the one-shot `alarm` above so the two never fight over playback state.
+  playPersonalAlarm: () => playLoop('personalAlarm'),
+  stopPersonalAlarm: () => stopLoop('personalAlarm'),
 
   playBombExplode: () => playOneShot('bombExplode'),
   playSmallSuccess: () => playOneShot('smallSuccess'),

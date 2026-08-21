@@ -3,7 +3,9 @@ export const MessageType = Object.freeze({
   START_MATCH: 'start_match',
   STATE_UPDATE: 'state_update',
   INPUT_PUZZLE_RESULT: 'input_puzzle_result',
+  INPUT_ZIP_SOLVED: 'input_zip_solved',
   GAME_OVER: 'game_over',
+  RETURN_TO_LOBBY: 'return_to_lobby',
 });
 
 function snapshotPlayer(p) {
@@ -20,6 +22,9 @@ function snapshotMatchState(matchState) {
     globalTimeRemaining: matchState.globalTimeRemaining,
     matchDurationSeconds: matchState.matchDurationSeconds,
     eliminationNotice: matchState.eliminationNotice,
+    zipEnabled: matchState.zipEnabled,
+    zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+    zipStain: matchState.zipStain,
   };
 }
 
@@ -29,6 +34,21 @@ export function createLobbyUpdateMessage(matchState) {
     type: MessageType.LOBBY_UPDATE,
     players: matchState.players.map(snapshotPlayer),
     matchDurationSeconds: matchState.matchDurationSeconds,
+    zipEnabled: matchState.zipEnabled,
+    zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+  };
+}
+
+// Host -> Clients: a finished match is back in the lobby with the same roster, ready to start
+// another round — same payload shape as lobby_update, distinct type so clients know to switch
+// their view back from the game-over screen rather than just refresh an already-visible list.
+export function createReturnToLobbyMessage(matchState) {
+  return {
+    type: MessageType.RETURN_TO_LOBBY,
+    players: matchState.players.map(snapshotPlayer),
+    matchDurationSeconds: matchState.matchDurationSeconds,
+    zipEnabled: matchState.zipEnabled,
+    zipStainDurationSeconds: matchState.zipStainDurationSeconds,
   };
 }
 
@@ -45,6 +65,11 @@ export function createStateUpdateMessage(matchState) {
 // Client -> Host: result of the local puzzle attempt for the sender.
 export function createPuzzleResultMessage(playerId, success) {
   return { type: MessageType.INPUT_PUZZLE_RESULT, playerId, success };
+}
+
+// Client -> Host: sender just solved their background sabotage (Zip) puzzle.
+export function createZipSolvedMessage(playerId) {
+  return { type: MessageType.INPUT_ZIP_SOLVED, playerId };
 }
 
 // Host -> Clients: global timer hit zero, match is over.

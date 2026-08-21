@@ -1,5 +1,5 @@
 import Peer from 'peerjs';
-import { MessageType, createPuzzleResultMessage, isValidMessage } from './NetworkMessages.js';
+import { MessageType, createPuzzleResultMessage, createZipSolvedMessage, isValidMessage } from './NetworkMessages.js';
 
 // Strictly sends input and renders received state — never mutates matchState locally.
 export class PeerClient {
@@ -12,6 +12,7 @@ export class PeerClient {
     this.onMatchStarted = null;
     this.onStateUpdate = null;
     this.onGameOver = null;
+    this.onReturnToLobby = null;
     this.onDisconnected = null;
     this.onError = null;
 
@@ -50,6 +51,12 @@ export class PeerClient {
     }
   }
 
+  sendZipSolved() {
+    if (this.conn && this.conn.open) {
+      this.conn.send(createZipSolvedMessage(this.peer.id));
+    }
+  }
+
   _handleHostMessage(message) {
     if (!isValidMessage(message)) return;
 
@@ -65,6 +72,9 @@ export class PeerClient {
         break;
       case MessageType.GAME_OVER:
         if (this.onGameOver) this.onGameOver({ winners: message.winners, loserId: message.loserId });
+        break;
+      case MessageType.RETURN_TO_LOBBY:
+        if (this.onReturnToLobby) this.onReturnToLobby(message);
         break;
     }
   }

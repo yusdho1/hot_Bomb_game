@@ -1,6 +1,8 @@
 export const DEFAULT_MATCH_DURATION = 60;
 export const PERSONAL_TIMER_SECONDS = 10;
 export const STREAK_TARGET = 3;
+export const DEFAULT_ZIP_ENABLED = true;
+export const DEFAULT_ZIP_STAIN_SECONDS = 1.5;
 
 // One per player slot (8 max) so no two players in a room ever share a background color.
 export const AVATAR_COLORS = [
@@ -23,7 +25,14 @@ function pickUnusedColor(matchState) {
 }
 
 // phase: 'lobby' | 'active' | 'ended'
-export function createMatchState(hostId, hostName, hostAvatar, matchDurationSeconds = DEFAULT_MATCH_DURATION) {
+export function createMatchState(
+  hostId,
+  hostName,
+  hostAvatar,
+  matchDurationSeconds = DEFAULT_MATCH_DURATION,
+  zipEnabled = DEFAULT_ZIP_ENABLED,
+  zipStainDurationSeconds = DEFAULT_ZIP_STAIN_SECONDS
+) {
   const matchState = {
     phase: 'lobby',
     players: [],
@@ -33,6 +42,13 @@ export function createMatchState(hostId, hostName, hostAvatar, matchDurationSeco
     globalTimeRemaining: matchDurationSeconds,
     matchDurationSeconds,
     eliminationNotice: null,
+    zipEnabled,
+    zipStainDurationSeconds,
+    zipStain: null,
+    zipStainSeq: 0,
+    // Host-only bookkeeping (never included in any network snapshot): which alive non-holders
+    // have already thrown a tomato this turn. Reset whenever a new holder is assigned.
+    _zipThrownThisTurn: new Set(),
   };
   matchState.players.push({
     id: hostId,
@@ -75,6 +91,11 @@ export function setMatchDuration(matchState, matchDurationSeconds) {
   matchState.matchDurationSeconds = matchDurationSeconds;
 }
 
+export function setZipSettings(matchState, { enabled, stainDurationSeconds }) {
+  if (enabled !== undefined) matchState.zipEnabled = enabled;
+  if (stainDurationSeconds !== undefined) matchState.zipStainDurationSeconds = stainDurationSeconds;
+}
+
 export function startMatch(matchState) {
   matchState.phase = 'active';
   matchState.globalTimeRemaining = matchState.matchDurationSeconds;
@@ -83,6 +104,8 @@ export function startMatch(matchState) {
   matchState.bombHolderId = starter.id;
   matchState.bombTimer = PERSONAL_TIMER_SECONDS;
   matchState.streakCount = 0;
+  matchState.zipStain = null;
+  matchState._zipThrownThisTurn = new Set();
 }
 
 // Returns { globalExpired, personalExpired }. No-ops outside the active phase.
@@ -114,6 +137,8 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
       matchState.bombHolderId = candidate.id;
       matchState.bombTimer = PERSONAL_TIMER_SECONDS;
       matchState.streakCount = 0;
+      matchState.zipStain = null;
+      matchState._zipThrownThisTurn = new Set();
       return;
     }
   }
@@ -151,6 +176,43 @@ export function registerPuzzleMiss(matchState, fromId) {
   if (matchState.phase !== 'active' || fromId !== matchState.bombHolderId) return false;
   matchState.streakCount = 0;
   return true;
+}
+
+// One alive non-holder "solved" their sabotage minigame. Throws a tomato at the current holder,
+// unless that player already threw one this turn (resets whenever a new holder is assigned) or
+// the feature is off for this match. Returns true if applied.
+export function throwZipStain(matchState, throwerId) {
+  if (matchState.phase !== 'active' || !matchState.zipEnabled) return false;
+  if (!matchState.bombHolderId || throwerId === matchState.bombHolderId) return false;
+  const thrower = matchState.players.find((p) => p.id === throwerId);
+  if (!thrower || thrower.status !== 'alive') return false;
+  if (matchState._zipThrownThisTurn.has(throwerId)) return false;
+
+  matchState._zipThrownThisTurn.add(throwerId);
+  matchState.zipStainSeq += 1;
+  matchState.zipStain = {
+    targetPlayerId: matchState.bombHolderId,
+    throwerId,
+    seq: matchState.zipStainSeq,
+  };
+  return true;
+}
+
+// Brings a finished match back to the lobby with the same roster (all revived to 'alive') so the
+// Host can start another round without anyone needing to reconnect. Only meant to be called with
+// matchState.players already filtered down to currently-connected players by the caller.
+export function resetToLobby(matchState) {
+  matchState.phase = 'lobby';
+  matchState.players.forEach((p) => {
+    p.status = 'alive';
+  });
+  matchState.bombHolderId = null;
+  matchState.bombTimer = PERSONAL_TIMER_SECONDS;
+  matchState.streakCount = 0;
+  matchState.globalTimeRemaining = matchState.matchDurationSeconds;
+  matchState.eliminationNotice = null;
+  matchState.zipStain = null;
+  matchState._zipThrownThisTurn = new Set();
 }
 
 function eliminatePlayer(matchState, playerId) {

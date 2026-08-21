@@ -10,13 +10,26 @@ const PUZZLES = [
   { titleText: 'WHACK-A-MOLE', mount: WhackAMolePuzzle.mount },
 ];
 
+// Which puzzle this local player got last turn — module-scoped (not exported/reset) since
+// puzzle selection happens independently on each player's own device, never synced by the Host.
+let lastPuzzleIndex = null;
+
+function pickPuzzleIndex() {
+  const candidates = PUZZLES.map((_, i) => i).filter((i) => i !== lastPuzzleIndex);
+  const pool = candidates.length > 0 ? candidates : PUZZLES.map((_, i) => i);
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 // Owns the shared chrome (banner, timer, streak dots, footer logo) around whichever puzzle
 // module is picked. The puzzle type is chosen once per call (i.e. once per holder turn) and
-// reused for every attempt within that turn, per the "3 in a row, same type" rule.
+// reused for every attempt within that turn, per the "3 in a row, same type" rule. Never repeats
+// the same puzzle type this player just had.
 export function mountPuzzleOverlay(containerEl, { onAttempt }) {
   containerEl.innerHTML = '';
 
-  const chosen = PUZZLES[Math.floor(Math.random() * PUZZLES.length)];
+  const puzzleIndex = pickPuzzleIndex();
+  lastPuzzleIndex = puzzleIndex;
+  const chosen = PUZZLES[puzzleIndex];
 
   const panel = document.createElement('div');
   panel.className = 'puzzle-panel';

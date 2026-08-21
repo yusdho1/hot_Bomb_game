@@ -5,14 +5,17 @@ import {
   addPlayer,
   removePlayer,
   setMatchDuration,
+  setZipSettings,
   startMatch,
   tickTimers,
   selectNextHolder,
   eliminateCurrentHolder,
   resolvePuzzleSuccess,
   registerPuzzleMiss,
+  throwZipStain,
   countAlivePlayers,
   endMatch,
+  resetToLobby,
 } from '../core/BombState.js';
 import {
   MessageType,
@@ -20,6 +23,7 @@ import {
   createStartMatchMessage,
   createStateUpdateMessage,
   createGameOverMessage,
+  createReturnToLobbyMessage,
   isValidMessage,
 } from './NetworkMessages.js';
 
@@ -42,6 +46,7 @@ export class PeerHost {
     this.onMatchStarted = null;
     this.onStateUpdate = null;
     this.onGameOver = null;
+    this.onReturnToLobby = null;
     this.onError = null;
 
     this.peer.on('open', (id) => {
@@ -79,6 +84,13 @@ export class PeerHost {
     this._emitLobbyUpdate();
   }
 
+  // Host-only lobby control for the tomato-sabotage minigame.
+  setZipSettings(settings) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setZipSettings(this.matchState, settings);
+    this._emitLobbyUpdate();
+  }
+
   // Host-only: remove a player from the lobby. Just closes their connection — the existing
   // conn.on('close') handler (registered in the constructor) does the actual removePlayer +
   // lobby-update broadcast, same as any other lobby-phase disconnect.
@@ -103,11 +115,37 @@ export class PeerHost {
     this._applyPuzzleResult(this.peer.id, success);
   }
 
+  // Called when the Host's own local player solves their background sabotage puzzle.
+  hostSubmitZipSolved() {
+    this._applyZipSolved(this.peer.id);
+  }
+
+  // Host-only: reset a finished match back to the lobby with everyone still connected, so the
+  // next round can start without anyone reconnecting. Drops anyone who disconnected mid-match
+  // (their connection is already gone from this.connections) rather than reviving a ghost.
+  playAgain() {
+    if (!this.matchState || this.matchState.phase !== 'ended') return;
+    this.matchState.players = this.matchState.players.filter(
+      (p) => p.id === this.peer.id || this.connections.has(p.id)
+    );
+    resetToLobby(this.matchState);
+    if (this.onReturnToLobby) this.onReturnToLobby(this.matchState);
+    this._broadcast(createReturnToLobbyMessage(this.matchState));
+  }
+
   _handleClientMessage(fromPeerId, message) {
     if (!isValidMessage(message) || !this.matchState) return;
     if (message.type === MessageType.INPUT_PUZZLE_RESULT && message.playerId === fromPeerId) {
       this._applyPuzzleResult(fromPeerId, message.success);
+    } else if (message.type === MessageType.INPUT_ZIP_SOLVED && message.playerId === fromPeerId) {
+      this._applyZipSolved(fromPeerId);
     }
+  }
+
+  _applyZipSolved(playerId) {
+    if (!this.matchState || this.matchState.phase !== 'active') return;
+    const applied = throwZipStain(this.matchState, playerId);
+    if (applied) this._broadcastState();
   }
 
   // A wrong attempt only resets the streak (registerPuzzleMiss) — it never eliminates directly.

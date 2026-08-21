@@ -336,6 +336,57 @@
         min-width: 40px;
         text-align: center;
       }
+      #zip-settings-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #zip-enabled-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #cfc9f0;
+        cursor: pointer;
+      }
+      #zip-enabled-checkbox {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-orange-bottom);
+        cursor: pointer;
+      }
+      #zip-duration-stepper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #zip-duration-stepper button {
+        width: 24px;
+        height: 24px;
+        min-height: 0;
+        padding: 4px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+      }
+      #zip-duration-stepper button img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      #zip-duration-stepper button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      #zip-duration-value {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        min-width: 32px;
+        text-align: center;
+      }
       #game-over-shield-img {
         width: 64px;
         margin-top: -8px;
@@ -343,6 +394,11 @@
       #client-waiting {
         font-size: 14px;
         color: #cfc9f0;
+      }
+      #game-over-waiting {
+        font-size: 14px;
+        color: #cfc9f0;
+        text-align: center;
       }
       .hidden {
         display: none !important;
@@ -379,13 +435,37 @@
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
-      #puzzle-overlay {
+      #puzzle-overlay,
+      #zip-overlay {
         position: absolute;
         inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         background: rgba(10, 10, 14, 0.55);
+      }
+      .tomato-stain {
+        position: absolute;
+        width: 90px;
+        height: 90px;
+        object-fit: contain;
+        pointer-events: none;
+        z-index: 20;
+        animation: tomato-splat 0.25s ease;
+      }
+      @keyframes tomato-splat {
+        0% {
+          transform: scale(0.3) rotate(-15deg);
+          opacity: 0;
+        }
+        60% {
+          transform: scale(1.15) rotate(8deg);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(1) rotate(0deg);
+          opacity: 1;
+        }
       }
       .puzzle-panel {
         width: 88%;
@@ -530,6 +610,90 @@
         line-height: 1.3;
         color: #ffdd55;
         text-align: center;
+        text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      .zip-panel {
+        width: 88%;
+        max-width: 300px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 14px;
+        border-radius: 20px;
+        border: 2px solid var(--panel-border);
+        background-image:
+          radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
+          radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
+          url('/UI/Sprites/background_bp_Gradinet.png');
+        background-size: 56px 56px, 36px 36px, 100% 100%;
+        background-position: 0 0, 18px 20px, center;
+        background-repeat: repeat, repeat, no-repeat;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        box-sizing: border-box;
+      }
+      .zip-banner {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 18px;
+        color: #fff5cc;
+        text-shadow: 2px 2px 0 var(--text-outline), -2px -2px 0 var(--text-outline), 2px -2px 0 var(--text-outline),
+          -2px 2px 0 var(--text-outline);
+      }
+      .zip-hint {
+        font-family: var(--font-display);
+        font-size: 12px;
+        color: #cfc9f0;
+        text-align: center;
+      }
+      .zip-grid-wrap {
+        display: grid;
+        touch-action: none;
+        user-select: none;
+      }
+      .zip-cell {
+        border-radius: 8px;
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+        box-sizing: border-box;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: background 0.1s ease;
+      }
+      .zip-cell.filled {
+        background: linear-gradient(135deg, var(--accent-orange-top), var(--accent-orange-bottom));
+        border-color: var(--accent-orange-border);
+      }
+      .zip-cell-number {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background: #fff5e0;
+        color: #3a1400;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 11px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+        pointer-events: none;
+        z-index: 2;
+      }
+      .zip-bridge {
+        background: transparent;
+        border-radius: 2px;
+      }
+      .zip-bridge.filled {
+        background: var(--accent-orange-bottom);
+      }
+      .zip-solved-banner {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 16px;
+        color: #ffdd55;
         text-shadow: 1px 1px 0 var(--text-outline);
       }
       .stroop-word {
@@ -807,6 +971,21 @@
               </button>
             </div>
           </div>
+          <div id="zip-settings-row">
+            <label id="zip-enabled-label">
+              <input type="checkbox" id="zip-enabled-checkbox" checked />
+              Tomato sabotage
+            </label>
+            <div id="zip-duration-stepper">
+              <button id="zip-duration-minus-btn" type="button" title="Shorter">
+                <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
+              </button>
+              <span id="zip-duration-value">1.5s</span>
+              <button id="zip-duration-plus-btn" type="button" title="Longer">
+                <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
+              </button>
+            </div>
+          </div>
           <button id="start-btn" class="btn-primary" disabled>Start Game</button>
         </div>
 
@@ -819,11 +998,13 @@
     <div id="game-container" class="hidden">
       <div id="elimination-toast"></div>
       <div id="puzzle-overlay" class="hidden"></div>
+      <div id="zip-overlay" class="hidden"></div>
       <div id="game-over-panel" class="hidden">
         <img id="game-over-loss-img" class="hidden" src="/UI/blewup.png" alt="You blew up" />
         <div id="game-over-title" class="hidden"></div>
         <img id="game-over-shield-img" class="hidden" src="/UI/Sprites/Sheild.png" alt="" />
-        <button id="play-again-btn" class="btn-primary">Play Again</button>
+        <button id="play-again-btn" class="btn-primary hidden">Next Round</button>
+        <div id="game-over-waiting" class="hidden">Waiting for host to start the next round...</div>
       </div>
     </div>
 

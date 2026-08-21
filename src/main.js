@@ -3,6 +3,7 @@ import { PeerHost } from './network/PeerHost.js';
 import { PeerClient } from './network/PeerClient.js';
 import { GameScene } from './render/GameScene.js';
 import { mountPuzzleOverlay as createPuzzleOverlay } from './render/puzzles/PuzzleOverlay.js';
+import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
 import { SoundManager } from './render/SoundManager.js';
 import { Haptics } from './render/Haptics.js';
 import { renderAvatar } from './render/AvatarRenderer.js';
@@ -19,6 +20,10 @@ const hostControlsEl = document.getElementById('host-controls');
 const durationMinusBtn = document.getElementById('duration-minus-btn');
 const durationPlusBtn = document.getElementById('duration-plus-btn');
 const durationValueEl = document.getElementById('duration-value');
+const zipEnabledCheckbox = document.getElementById('zip-enabled-checkbox');
+const zipDurationMinusBtn = document.getElementById('zip-duration-minus-btn');
+const zipDurationPlusBtn = document.getElementById('zip-duration-plus-btn');
+const zipDurationValueEl = document.getElementById('zip-duration-value');
 const startBtn = document.getElementById('start-btn');
 const clientWaitingEl = document.getElementById('client-waiting');
 const lobbyStatusEl = document.getElementById('lobby-status');
@@ -27,9 +32,11 @@ const lobbyEl = document.getElementById('lobby');
 const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
+const zipOverlayEl = document.getElementById('zip-overlay');
 const gameOverPanelEl = document.getElementById('game-over-panel');
 const gameOverLossImgEl = document.getElementById('game-over-loss-img');
 const gameOverTitleEl = document.getElementById('game-over-title');
+const gameOverWaitingEl = document.getElementById('game-over-waiting');
 const playAgainBtn = document.getElementById('play-again-btn');
 
 const hostBtn = document.getElementById('host-btn');
@@ -55,19 +62,25 @@ const avatarCreatorXBtn = document.getElementById('avatar-creator-x-btn');
 const gameOverShieldImgEl = document.getElementById('game-over-shield-img');
 
 const DURATION_STEPS = [30, 60, 90, 120];
+const ZIP_DURATION_STEPS = [1, 1.5, 2, 2.5, 3];
+const TOMATO_STAIN_PX = 90;
 
 let role = null; // 'host' | 'client'
 let host = null;
 let client = null;
 let localPlayerId = null;
 let scene = null;
+let phaserGame = null;
 let lastMatchState = null;
 let lastEliminationNoticeId = undefined;
+let lastZipStainSeq = 0;
 let puzzleHandle = null;
+let zipHandle = null;
 let vibratedThresholds = new Set();
 let avatarCreatorHandle = null;
 let currentAvatarParts = loadSavedAvatarParts() || randomAvatarParts();
 let matchDurationSeconds = 60;
+let zipStainDurationSeconds = 1.5;
 let currentRoomCode = null;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
@@ -110,7 +123,7 @@ function resetToEntry(message) {
   currentRoomCode = null;
 }
 
-function renderLobbyPlayers(players, matchDurationSeconds) {
+function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurationSeconds) {
   playerListEl.innerHTML = '';
   players.forEach((player) => {
     const li = document.createElement('li');
@@ -141,6 +154,8 @@ function renderLobbyPlayers(players, matchDurationSeconds) {
   });
 
   setDurationDisplay(matchDurationSeconds);
+  if (zipEnabled !== undefined) zipEnabledCheckbox.checked = zipEnabled;
+  if (zipDurationSeconds !== undefined) setZipDurationDisplay(zipDurationSeconds);
   clientWaitingEl.textContent = `Waiting for host to start... (Match length: ${matchDurationSeconds}s)`;
   startBtn.disabled = players.length < 2;
 }
@@ -152,12 +167,31 @@ function setDurationDisplay(seconds) {
   durationPlusBtn.disabled = seconds >= DURATION_STEPS[DURATION_STEPS.length - 1];
 }
 
+function setZipDurationDisplay(seconds) {
+  zipStainDurationSeconds = seconds;
+  zipDurationValueEl.textContent = `${seconds}s`;
+  zipDurationMinusBtn.disabled = seconds <= ZIP_DURATION_STEPS[0];
+  zipDurationPlusBtn.disabled = seconds >= ZIP_DURATION_STEPS[ZIP_DURATION_STEPS.length - 1];
+}
+
+function stepZipDuration(delta) {
+  const currentIndex = ZIP_DURATION_STEPS.indexOf(zipStainDurationSeconds);
+  const nextIndex = Math.max(0, Math.min(ZIP_DURATION_STEPS.length - 1, currentIndex + delta));
+  const nextSeconds = ZIP_DURATION_STEPS[nextIndex];
+  setZipDurationDisplay(nextSeconds);
+  if (role === 'host' && host) host.setZipSettings({ stainDurationSeconds: nextSeconds });
+}
+
 function startGame(matchState) {
+  if (phaserGame) {
+    phaserGame.destroy(true);
+    phaserGame = null;
+  }
   lobbyEl.classList.add('hidden');
   gameEl.classList.remove('hidden');
   lastMatchState = matchState;
 
-  const game = new Phaser.Game({
+  phaserGame = new Phaser.Game({
     type: Phaser.AUTO,
     scale: {
       mode: Phaser.Scale.FIT,
@@ -170,11 +204,16 @@ function startGame(matchState) {
     scene: [GameScene],
   });
 
-  game.scene.start('GameScene', {
+  phaserGame.scene.start('GameScene', {
     localPlayerId,
     onLocalIsHolder: (isHolder) => {
-      if (isHolder) mountPuzzleUI();
-      else unmountPuzzleUI();
+      if (isHolder) {
+        mountPuzzleUI();
+        unmountZipUI();
+      } else {
+        unmountPuzzleUI();
+        mountZipUI();
+      }
     },
     onSceneReady: (sceneInstance) => {
       scene = sceneInstance;
@@ -189,6 +228,7 @@ function applyMatchState(matchState) {
 
   if (scene) scene.applyMatchState(matchState);
   applyEliminationNotice(matchState.eliminationNotice);
+  checkZipStain(matchState);
 
   if (puzzleHandle) {
     puzzleHandle.updateTimer(matchState.bombTimer);
@@ -214,8 +254,8 @@ function applyMatchState(matchState) {
   }
 
   if (matchState.phase === 'active' && matchState.bombHolderId === localPlayerId) {
-    const personalUrgency = Math.max(0, Math.min(1, (4 - matchState.bombTimer) / 4));
-    SoundManager.setPersonalMusicRate(1 + personalUrgency * 0.6);
+    if (matchState.bombTimer <= 4) SoundManager.playPersonalAlarm();
+    else SoundManager.stopPersonalAlarm();
 
     [
       [3, Haptics.pulseLow],
@@ -227,6 +267,8 @@ function applyMatchState(matchState) {
         pulse();
       }
     });
+  } else {
+    SoundManager.stopPersonalAlarm();
   }
 }
 
@@ -272,16 +314,70 @@ function submitPuzzleResult(success) {
   else if (role === 'client' && client) client.sendPuzzleResult(success);
 }
 
+// --- Zip sabotage minigame (alive non-holders, while waiting for their turn) ---
+
+function mountZipUI() {
+  if (!lastMatchState || lastMatchState.phase !== 'active' || !lastMatchState.zipEnabled) return;
+  const me = lastMatchState.players.find((p) => p.id === localPlayerId);
+  if (!me || me.status !== 'alive') return;
+  if (lastMatchState.bombHolderId === localPlayerId) return;
+
+  zipOverlayEl.classList.remove('hidden');
+  zipHandle = ZipPuzzle.mount(zipOverlayEl, { onSolved: submitZipSolved });
+}
+
+function unmountZipUI() {
+  zipOverlayEl.classList.add('hidden');
+  if (zipHandle) {
+    zipHandle.unmount();
+    zipHandle = null;
+  }
+}
+
+function submitZipSolved() {
+  if (role === 'host' && host) host.hostSubmitZipSolved();
+  else if (role === 'client' && client) client.sendZipSolved();
+}
+
+// Detects a NEW stain event via its seq number (matchState is re-broadcast every tick, so the
+// same event would otherwise re-trigger the visual on every subsequent state_update).
+function checkZipStain(matchState) {
+  if (!matchState.zipStain || matchState.zipStain.seq === lastZipStainSeq) return;
+  lastZipStainSeq = matchState.zipStain.seq;
+  if (matchState.zipStain.targetPlayerId === localPlayerId) {
+    showTomatoStain(matchState.zipStainDurationSeconds);
+  }
+}
+
+function showTomatoStain(durationSeconds) {
+  const stain = document.createElement('img');
+  stain.src = '/UI/Sprites/Tomato_Stain.png';
+  stain.alt = '';
+  stain.className = 'tomato-stain';
+  const maxX = Math.max(0, gameEl.clientWidth - TOMATO_STAIN_PX);
+  const maxY = Math.max(0, gameEl.clientHeight - TOMATO_STAIN_PX);
+  stain.style.left = `${Math.random() * maxX}px`;
+  stain.style.top = `${Math.random() * maxY}px`;
+  gameEl.appendChild(stain);
+  setTimeout(() => stain.remove(), Math.max(200, durationSeconds * 1000));
+}
+
 function showGameOver({ winners, loserId }) {
   unmountPuzzleUI();
+  unmountZipUI();
   applyEliminationNotice(null);
   SoundManager.stopGlobalTicking();
+  SoundManager.stopPersonalAlarm();
   gameOverPanelEl.classList.remove('hidden');
 
   const youWon = winners.includes(localPlayerId);
   gameOverLossImgEl.classList.toggle('hidden', youWon);
   gameOverTitleEl.classList.toggle('hidden', !youWon);
   gameOverShieldImgEl.classList.toggle('hidden', !youWon);
+
+  // Only the Host can start the next round — everyone else just waits for it.
+  playAgainBtn.classList.toggle('hidden', role !== 'host');
+  gameOverWaitingEl.classList.toggle('hidden', role === 'host');
 
   if (youWon) {
     gameOverTitleEl.textContent = 'YOU SURVIVED! \u{1F3C6}';
@@ -293,6 +389,34 @@ function showGameOver({ winners, loserId }) {
     triggerShake('shake-big');
     Haptics.explode();
   }
+}
+
+// Brings a finished match back to the room screen with the same connected players, so the Host
+// can start another round without anyone reconnecting.
+function returnToLobby(message) {
+  if (phaserGame) {
+    phaserGame.destroy(true);
+    phaserGame = null;
+  }
+  scene = null;
+  lastMatchState = null;
+  lastEliminationNoticeId = undefined;
+  lastZipStainSeq = 0;
+  vibratedThresholds.clear();
+  SoundManager.stopGlobalTicking();
+  SoundManager.stopPersonalAlarm();
+  SoundManager.stopPersonalRoundMusic();
+  SoundManager.resetAlarm();
+
+  gameOverPanelEl.classList.add('hidden');
+  gameEl.classList.add('hidden');
+  lobbyEl.classList.remove('hidden');
+  entryEl.classList.add('hidden');
+  roomEl.classList.remove('hidden');
+  hostControlsEl.classList.toggle('hidden', role !== 'host');
+  clientWaitingEl.classList.toggle('hidden', role === 'host');
+
+  renderLobbyPlayers(message.players, message.matchDurationSeconds, message.zipEnabled, message.zipStainDurationSeconds);
 }
 
 // --- Avatar: random / customize ---
@@ -394,10 +518,12 @@ joinConfirmBtn.addEventListener('click', () => {
     joinModalEl.classList.add('hidden');
     enterRoom(roomCode, false);
   };
-  client.onLobbyUpdate = (message) => renderLobbyPlayers(message.players, message.matchDurationSeconds);
+  client.onLobbyUpdate = (message) =>
+    renderLobbyPlayers(message.players, message.matchDurationSeconds, message.zipEnabled, message.zipStainDurationSeconds);
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
   client.onGameOver = (result) => showGameOver(result);
+  client.onReturnToLobby = (message) => returnToLobby(message);
   client.onDisconnected = () => {
     // Only relevant while still in the lobby (e.g. host kicked us) — a mid-match drop is
     // already handled by the host's own elimination-on-disconnect logic.
@@ -413,7 +539,9 @@ joinConfirmBtn.addEventListener('click', () => {
 
 // --- Lobby / room ---
 
-playAgainBtn.addEventListener('click', () => location.reload());
+playAgainBtn.addEventListener('click', () => {
+  if (role === 'host' && host) host.playAgain();
+});
 
 function stepDuration(delta) {
   const currentIndex = DURATION_STEPS.indexOf(matchDurationSeconds);
@@ -425,6 +553,13 @@ function stepDuration(delta) {
 
 durationMinusBtn.addEventListener('click', () => stepDuration(-1));
 durationPlusBtn.addEventListener('click', () => stepDuration(1));
+
+zipDurationMinusBtn.addEventListener('click', () => stepZipDuration(-1));
+zipDurationPlusBtn.addEventListener('click', () => stepZipDuration(1));
+
+zipEnabledCheckbox.addEventListener('change', () => {
+  if (role === 'host' && host) host.setZipSettings({ enabled: zipEnabledCheckbox.checked });
+});
 
 startBtn.addEventListener('click', () => {
   if (role === 'host' && host) host.beginMatch();
@@ -443,10 +578,12 @@ hostBtn.addEventListener('click', () => {
     lobbyStatusEl.textContent = '';
     enterRoom(roomCode, true);
   };
-  host.onLobbyUpdate = (matchState) => renderLobbyPlayers(matchState.players, matchState.matchDurationSeconds);
+  host.onLobbyUpdate = (matchState) =>
+    renderLobbyPlayers(matchState.players, matchState.matchDurationSeconds, matchState.zipEnabled, matchState.zipStainDurationSeconds);
   host.onMatchStarted = (matchState) => startGame(matchState);
   host.onStateUpdate = (matchState) => applyMatchState(matchState);
   host.onGameOver = (result) => showGameOver(result);
+  host.onReturnToLobby = (matchState) => returnToLobby(matchState);
   host.onError = (err) => {
     lobbyStatusEl.textContent = `Host error: ${err.message ?? err.type}`;
   };
