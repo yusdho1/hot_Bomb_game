@@ -296,6 +296,18 @@
         text-overflow: ellipsis;
         white-space: nowrap;
       }
+      .player-win-badge {
+        flex-shrink: 0;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 12px;
+        color: #3a1400;
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        border: 1px solid var(--accent-orange-border);
+        border-radius: 10px;
+        padding: 2px 7px;
+        white-space: nowrap;
+      }
       .player-kick-btn {
         width: 22px;
         height: 22px;
@@ -491,6 +503,48 @@
         100% {
           transform: scale(1) rotate(var(--tomato-rot, 0deg));
           opacity: 1;
+        }
+      }
+      .confetti-piece {
+        position: absolute;
+        top: -20px;
+        width: 8px;
+        height: 14px;
+        border-radius: 2px;
+        opacity: 0.95;
+        pointer-events: none;
+        z-index: 30;
+        animation: confetti-fall var(--fall-duration, 1.8s) ease-in forwards;
+      }
+      @keyframes confetti-fall {
+        0% {
+          transform: translate(0, 0) rotate(0deg);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(var(--drift, 0px), 480px) rotate(var(--spin, 360deg));
+          opacity: 0;
+        }
+      }
+      .explosion-particle {
+        position: absolute;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: radial-gradient(circle, #fff6c8 0%, #ffb347 45%, #ff4d00 80%);
+        box-shadow: 0 0 6px 2px rgba(255, 120, 0, 0.6);
+        pointer-events: none;
+        z-index: 30;
+        animation: explosion-burst 0.5s ease-out forwards;
+      }
+      @keyframes explosion-burst {
+        0% {
+          transform: translate(-50%, -50%) scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(calc(-50% + var(--tx, 0px)), calc(-50% + var(--ty, 0px))) scale(0.3);
+          opacity: 0;
         }
       }
       .puzzle-panel {
@@ -811,6 +865,23 @@
         text-shadow: 2px 2px 0 var(--text-outline), -2px -2px 0 var(--text-outline), 2px -2px 0 var(--text-outline),
           -2px 2px 0 var(--text-outline), 0 3px 6px rgba(0, 0, 0, 0.4);
       }
+      #game-over-wins {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 8px;
+        max-width: 90%;
+      }
+      #game-over-wins .win-tally-chip {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        color: #f2f2f2;
+        background: rgba(255, 255, 255, 0.1);
+        border: 1px solid var(--panel-border);
+        border-radius: 12px;
+        padding: 4px 10px;
+      }
       @keyframes shake-small {
         0%,
         100% {
@@ -927,6 +998,69 @@
       .avatar-creator-panel {
         max-width: 320px;
       }
+      #how-to-play-row {
+        display: flex;
+        justify-content: center;
+        width: 100%;
+      }
+      #how-to-play-btn {
+        min-height: 0;
+        padding: 4px 14px;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid var(--panel-border);
+        color: #cfc9f0;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 12px;
+        cursor: pointer;
+      }
+      #how-to-play-btn:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      #how-to-play-btn:active {
+        transform: translateY(1px);
+      }
+      .how-to-play-panel {
+        max-width: 340px;
+      }
+      .rules-list {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+      .rule-row {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+      }
+      .rule-icon {
+        width: 36px;
+        height: 36px;
+        object-fit: contain;
+        flex-shrink: 0;
+        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+      }
+      .rule-icon-emoji {
+        width: 36px;
+        height: 36px;
+        flex-shrink: 0;
+        font-size: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .rule-text {
+        font-size: 13px;
+        line-height: 1.4;
+        color: #f2f2f2;
+        text-align: left;
+      }
+      .rule-text strong {
+        color: #ffdd55;
+        font-family: var(--font-display);
+      }
       .catch-zone {
         position: relative;
         width: 100%;
@@ -984,6 +1118,9 @@
           <button id="host-btn" class="btn-primary">Host Game</button>
           <button id="join-btn" class="btn-primary">Join Game</button>
         </div>
+        <div id="how-to-play-row">
+          <button id="how-to-play-btn" type="button">How to Play</button>
+        </div>
       </div>
 
       <div id="room" class="hidden">
@@ -1038,6 +1175,7 @@
         <img id="game-over-loss-img" class="hidden" src="/UI/blewup.png" alt="You blew up" />
         <div id="game-over-title" class="hidden"></div>
         <img id="game-over-shield-img" class="hidden" src="/UI/Sprites/Sheild.png" alt="" />
+        <div id="game-over-wins" class="hidden"></div>
         <button id="play-again-btn" class="btn-primary hidden">Next Round</button>
         <div id="game-over-waiting" class="hidden">Waiting for host to start the next round...</div>
       </div>
@@ -1066,6 +1204,48 @@
           <button id="avatar-save-btn" class="btn-primary">Save</button>
           <button id="avatar-cancel-btn" class="btn-secondary">Cancel</button>
         </div>
+      </div>
+    </div>
+
+    <div id="how-to-play-modal" class="modal-overlay hidden">
+      <div class="puzzle-panel how-to-play-panel">
+        <button id="how-to-play-x-btn" class="modal-close-btn" title="Close"></button>
+        <div class="modal-title">How to Play</div>
+        <div class="rules-list">
+          <div class="rule-row">
+            <img class="rule-icon" src="/UI/Bomb.png" alt="" />
+            <div class="rule-text">
+              <strong>Pass the Bomb</strong> — whoever's holding it must solve 3 puzzles of the same type in a row
+              before their fuse runs out.
+            </div>
+          </div>
+          <div class="rule-row">
+            <div class="rule-icon-emoji">⏱️</div>
+            <div class="rule-text">
+              <strong>Two Timers</strong> — your personal fuse eliminates YOU if it hits zero. The match clock ends
+              the whole game — whoever's holding the bomb when it runs out loses.
+            </div>
+          </div>
+          <div class="rule-row">
+            <img class="rule-icon" src="/UI/Sprites/IconCloseXRed.png" alt="" />
+            <div class="rule-text">
+              <strong>Wrong Answer</strong> — resets your streak back to 0, but your fuse keeps ticking either way —
+              don't panic, just keep going.
+            </div>
+          </div>
+          <div class="rule-row">
+            <img class="rule-icon" src="/UI/Sprites/Tomato_Stain.png" alt="" />
+            <div class="rule-text">
+              <strong>Tomato Sabotage</strong> — while you wait for your turn, solve the Zip puzzle to throw a
+              tomato at whoever's holding the bomb!
+            </div>
+          </div>
+          <div class="rule-row">
+            <img class="rule-icon" src="/UI/Sprites/Sheild.png" alt="" />
+            <div class="rule-text"><strong>Last One Standing</strong> — survive to win the round.</div>
+          </div>
+        </div>
+        <button id="how-to-play-close-btn" class="btn-primary">Got it!</button>
       </div>
     </div>
 

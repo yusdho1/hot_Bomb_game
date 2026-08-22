@@ -71,7 +71,8 @@ export class PeerClient {
         if (this.onStateUpdate) this.onStateUpdate(message.matchState);
         break;
       case MessageType.GAME_OVER:
-        if (this.onGameOver) this.onGameOver({ winners: message.winners, loserId: message.loserId });
+        if (this.onGameOver)
+          this.onGameOver({ winners: message.winners, loserId: message.loserId, winCounts: message.winCounts });
         break;
       case MessageType.RETURN_TO_LOBBY:
         if (this.onReturnToLobby) this.onReturnToLobby(message);

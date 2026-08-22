@@ -25,6 +25,7 @@ function snapshotMatchState(matchState) {
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     zipStain: matchState.zipStain,
+    winCounts: matchState.winCounts,
   };
 }
 
@@ -36,6 +37,7 @@ export function createLobbyUpdateMessage(matchState) {
     matchDurationSeconds: matchState.matchDurationSeconds,
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+    winCounts: matchState.winCounts,
   };
 }
 
@@ -49,6 +51,7 @@ export function createReturnToLobbyMessage(matchState) {
     matchDurationSeconds: matchState.matchDurationSeconds,
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+    winCounts: matchState.winCounts,
   };
 }
 
@@ -73,8 +76,8 @@ export function createZipSolvedMessage(playerId) {
 }
 
 // Host -> Clients: global timer hit zero, match is over.
-export function createGameOverMessage(winners, loserId) {
-  return { type: MessageType.GAME_OVER, winners, loserId };
+export function createGameOverMessage(winners, loserId, winCounts) {
+  return { type: MessageType.GAME_OVER, winners, loserId, winCounts };
 }
 
 export function isValidMessage(message) {

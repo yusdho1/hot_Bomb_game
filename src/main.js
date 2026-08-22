@@ -6,6 +6,7 @@ import { mountPuzzleOverlay as createPuzzleOverlay } from './render/puzzles/Puzz
 import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
 import { SoundManager } from './render/SoundManager.js';
 import { Haptics } from './render/Haptics.js';
+import { spawnConfetti, spawnExplosionBurst } from './render/Particles.js';
 import { renderAvatar } from './render/AvatarRenderer.js';
 import { mountAvatarCreator } from './render/AvatarCreator.js';
 import { randomAvatarParts, loadSavedAvatarParts, saveAvatarParts } from './render/avatarOptions.js';
@@ -37,6 +38,7 @@ const gameOverPanelEl = document.getElementById('game-over-panel');
 const gameOverLossImgEl = document.getElementById('game-over-loss-img');
 const gameOverTitleEl = document.getElementById('game-over-title');
 const gameOverWaitingEl = document.getElementById('game-over-waiting');
+const gameOverWinsEl = document.getElementById('game-over-wins');
 const playAgainBtn = document.getElementById('play-again-btn');
 
 const hostBtn = document.getElementById('host-btn');
@@ -59,6 +61,10 @@ const avatarSaveBtn = document.getElementById('avatar-save-btn');
 const avatarCancelBtn = document.getElementById('avatar-cancel-btn');
 const joinModalXBtn = document.getElementById('join-modal-x-btn');
 const avatarCreatorXBtn = document.getElementById('avatar-creator-x-btn');
+const howToPlayBtn = document.getElementById('how-to-play-btn');
+const howToPlayModalEl = document.getElementById('how-to-play-modal');
+const howToPlayXBtn = document.getElementById('how-to-play-x-btn');
+const howToPlayCloseBtn = document.getElementById('how-to-play-close-btn');
 const gameOverShieldImgEl = document.getElementById('game-over-shield-img');
 
 const DURATION_STEPS = [30, 60, 90, 120];
@@ -151,7 +157,7 @@ function resetToEntry(message) {
   currentRoomCode = null;
 }
 
-function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurationSeconds) {
+function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurationSeconds, winCounts) {
   playerListEl.innerHTML = '';
   players.forEach((player) => {
     const li = document.createElement('li');
@@ -166,6 +172,15 @@ function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurati
     const displayName = player.name || 'Player';
     nameSpan.textContent = player.id === localPlayerId ? `${displayName} (You)` : displayName;
     li.appendChild(nameSpan);
+
+    const wins = winCounts ? winCounts[player.id] || 0 : 0;
+    if (wins > 0) {
+      const winBadge = document.createElement('span');
+      winBadge.className = 'player-win-badge';
+      winBadge.textContent = `\u{1F3C6} ${wins}`;
+      winBadge.title = `${wins} round${wins === 1 ? '' : 's'} won this session`;
+      li.appendChild(winBadge);
+    }
 
     if (role === 'host' && player.id !== localPlayerId) {
       const kickBtn = document.createElement('button');
@@ -312,6 +327,7 @@ function applyEliminationNotice(notice) {
     eliminationToastEl.classList.add('visible');
     SoundManager.playBombExplode();
     triggerShake('shake-big');
+    spawnExplosionBurst(gameEl, 50, 50);
     if (notice.eliminatedPlayerId === localPlayerId) Haptics.explode();
   } else {
     eliminationToastEl.classList.remove('visible');
@@ -400,7 +416,7 @@ function showTomatoStain(durationSeconds) {
   setTimeout(() => stain.remove(), Math.max(200, durationSeconds * 1000));
 }
 
-function showGameOver({ winners, loserId }) {
+function showGameOver({ winners, loserId, winCounts }) {
   unmountPuzzleUI();
   unmountZipUI();
   applyEliminationNotice(null);
@@ -417,16 +433,44 @@ function showGameOver({ winners, loserId }) {
   playAgainBtn.classList.toggle('hidden', role !== 'host');
   gameOverWaitingEl.classList.toggle('hidden', role === 'host');
 
+  renderWinTally(winCounts);
+
   if (youWon) {
     gameOverTitleEl.textContent = 'YOU SURVIVED! \u{1F3C6}';
     SoundManager.playWin();
+    spawnConfetti(gameEl);
   } else if (loserId === localPlayerId) {
     // Only the final (skip-the-pause) elimination reaches here without already having played
     // the explosion via applyEliminationNotice — mid-match eliminations get it from there.
     SoundManager.playBombExplode();
     triggerShake('shake-big');
+    spawnExplosionBurst(gameEl, 50, 50);
     Haptics.explode();
   }
+}
+
+function renderWinTally(winCounts) {
+  gameOverWinsEl.innerHTML = '';
+  if (!winCounts || !lastMatchState) {
+    gameOverWinsEl.classList.add('hidden');
+    return;
+  }
+  const entries = lastMatchState.players
+    .map((p) => ({ name: p.name || 'Player', wins: winCounts[p.id] || 0 }))
+    .filter((e) => e.wins > 0)
+    .sort((a, b) => b.wins - a.wins);
+
+  if (entries.length === 0) {
+    gameOverWinsEl.classList.add('hidden');
+    return;
+  }
+  entries.forEach(({ name, wins }) => {
+    const chip = document.createElement('span');
+    chip.className = 'win-tally-chip';
+    chip.textContent = `${name}: \u{1F3C6}${wins}`;
+    gameOverWinsEl.appendChild(chip);
+  });
+  gameOverWinsEl.classList.remove('hidden');
 }
 
 // Brings a finished match back to the room screen with the same connected players, so the Host
@@ -454,7 +498,13 @@ function returnToLobby(message) {
   hostControlsEl.classList.toggle('hidden', role !== 'host');
   clientWaitingEl.classList.toggle('hidden', role === 'host');
 
-  renderLobbyPlayers(message.players, message.matchDurationSeconds, message.zipEnabled, message.zipStainDurationSeconds);
+  renderLobbyPlayers(
+    message.players,
+    message.matchDurationSeconds,
+    message.zipEnabled,
+    message.zipStainDurationSeconds,
+    message.winCounts
+  );
 }
 
 // --- Avatar: random / customize ---
@@ -500,6 +550,12 @@ avatarCancelBtn.addEventListener('click', () => {
 avatarCreatorXBtn.addEventListener('click', () => {
   if (avatarCreatorHandle) avatarCreatorHandle.cancel();
 });
+
+// --- How to Play ---
+
+howToPlayBtn.addEventListener('click', () => howToPlayModalEl.classList.remove('hidden'));
+howToPlayXBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
+howToPlayCloseBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
 
 // --- Room code copy ---
 
@@ -557,7 +613,13 @@ joinConfirmBtn.addEventListener('click', () => {
     enterRoom(roomCode, false);
   };
   client.onLobbyUpdate = (message) =>
-    renderLobbyPlayers(message.players, message.matchDurationSeconds, message.zipEnabled, message.zipStainDurationSeconds);
+    renderLobbyPlayers(
+      message.players,
+      message.matchDurationSeconds,
+      message.zipEnabled,
+      message.zipStainDurationSeconds,
+      message.winCounts
+    );
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
   client.onGameOver = (result) => showGameOver(result);
@@ -617,7 +679,13 @@ hostBtn.addEventListener('click', () => {
     enterRoom(roomCode, true);
   };
   host.onLobbyUpdate = (matchState) =>
-    renderLobbyPlayers(matchState.players, matchState.matchDurationSeconds, matchState.zipEnabled, matchState.zipStainDurationSeconds);
+    renderLobbyPlayers(
+      matchState.players,
+      matchState.matchDurationSeconds,
+      matchState.zipEnabled,
+      matchState.zipStainDurationSeconds,
+      matchState.winCounts
+    );
   host.onMatchStarted = (matchState) => startGame(matchState);
   host.onStateUpdate = (matchState) => applyMatchState(matchState);
   host.onGameOver = (result) => showGameOver(result);

@@ -49,6 +49,9 @@ export function createMatchState(
     // Host-only bookkeeping (never included in any network snapshot): which alive non-holders
     // have already thrown a tomato this turn. Reset whenever a new holder is assigned.
     _zipThrownThisTurn: new Set(),
+    // playerId -> rounds won this room session. Persists across resetToLobby (Next Round) —
+    // only ever grows, never cleared, for as long as the room stays open.
+    winCounts: {},
   };
   matchState.players.push({
     id: hostId,
@@ -238,6 +241,9 @@ export function endMatch(matchState, loserId) {
   matchState.phase = 'ended';
   if (loserId) eliminatePlayer(matchState, loserId);
   const winners = alivePlayers(matchState).map((p) => p.id);
+  winners.forEach((id) => {
+    matchState.winCounts[id] = (matchState.winCounts[id] || 0) + 1;
+  });
   matchState.bombHolderId = null;
   return { winners, loserId };
 }
