@@ -8,27 +8,30 @@ import gameConfig from '../../config/game.config.json';
 const ENABLED_IDS = new Set(gameConfig.minigames.filter((m) => m.enabled).map((m) => m.id));
 const PUZZLES = REGISTRY.filter((p) => ENABLED_IDS.has(p.id));
 
-// Which puzzle this local player got last turn — module-scoped (not exported/reset) since
+// A real per-player bag of remaining puzzle ids — module-scoped (not exported/reset) since
 // puzzle selection happens independently on each player's own device, never synced by the Host.
-// Tracked by id (not array index) since the active pool is config-filtered and its composition
-// can change between builds.
-let lastPuzzleId = null;
+// Each pick removes that id from the bag; once empty it refills with every enabled id, so a
+// player never sees a repeat until they've had every other type at least once. A skipped turn
+// never calls pickPuzzle() at all (mountPuzzleOverlay simply isn't invoked that turn), so it
+// never touches the bag — nothing to special-case there.
+let pool = [];
 
 function pickPuzzle() {
-  const candidates = PUZZLES.filter((p) => p.id !== lastPuzzleId);
-  const pool = candidates.length > 0 ? candidates : PUZZLES;
-  return pool[Math.floor(Math.random() * pool.length)];
+  if (pool.length === 0) pool = PUZZLES.map((p) => p.id);
+  const idx = Math.floor(Math.random() * pool.length);
+  const [id] = pool.splice(idx, 1);
+  return PUZZLES.find((p) => p.id === id);
 }
 
 // Owns the shared chrome (banner, timer, streak dots, footer logo) around whichever puzzle
 // module is picked. The puzzle type is chosen once per call (i.e. once per holder turn) and
-// reused for every attempt within that turn, per the "3 in a row, same type" rule. Never repeats
-// the same puzzle type this player just had.
-export function mountPuzzleOverlay(containerEl, { onAttempt }) {
+// reused for every attempt within that turn, per the "N in a row, same type" rule (N =
+// streakTarget, host-configurable 1-4). Draws from the per-player bag above, so it never repeats
+// a type until every other type has come up at least once.
+export function mountPuzzleOverlay(containerEl, { onAttempt, streakTarget, difficulty }) {
   containerEl.innerHTML = '';
 
   const chosen = pickPuzzle();
-  lastPuzzleId = chosen.id;
 
   const panel = document.createElement('div');
   panel.className = 'puzzle-panel';
@@ -77,7 +80,7 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
 
   const dotsEl = document.createElement('div');
   dotsEl.className = 'puzzle-dots';
-  const dots = [0, 1, 2].map(() => {
+  const dots = Array.from({ length: streakTarget || 3 }, () => {
     const dot = document.createElement('div');
     dot.className = 'puzzle-dot';
     dotsEl.appendChild(dot);
@@ -103,7 +106,7 @@ export function mountPuzzleOverlay(containerEl, { onAttempt }) {
     onAttempt(success);
   }
 
-  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt);
+  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt, { difficulty });
 
   return {
     updateTimer(seconds) {

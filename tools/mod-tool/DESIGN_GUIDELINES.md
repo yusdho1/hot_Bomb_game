@@ -120,9 +120,11 @@ beyond a normal `click`. Reference: `WhackAMole.js`.
 ```js
 export const settingsSchema = [ /* optional — see below */ ];
 
-function mount(contentEl, onAttempt) {
+function mount(contentEl, onAttempt, { difficulty }) {
   // Build your puzzle's DOM inside contentEl. Call onAttempt(true|false) on every attempt.
   // The shared chrome (banner, fuse-timer bar, streak dots) is already handled for you.
+  // difficulty is 'easy' | 'medium' | 'hard' — the Host's choice for this match. Only read it
+  // (via readPuzzleSettings, below) if your puzzle actually has a difficulty-tunable field.
   function nextRound() { /* set up the next attempt */ }
   nextRound();
   return { unmount() { /* stop timers, nothing else usually needed for click-only puzzles */ } };
@@ -145,21 +147,62 @@ export const settingsSchema = [
 ];
 ```
 
-Supported `type`s: `number`, `string`, `color`. Read the saved values at module load with the
-shared helper:
+Supported `type`s: `number`, `string`, `color`. Read the saved values **inside `mount()`**, not at
+module load — see "Difficulty presets" below for why:
 
 ```js
 import { readPuzzleSettings } from '../puzzleSettings.js';
-const settings = readPuzzleSettings('yourid', settingsSchema);
+
+function mount(contentEl, onAttempt, { difficulty }) {
+  const settings = readPuzzleSettings('yourid', settingsSchema, difficulty);
+  // ...use settings.roundTimeMs etc. from here down.
+}
 ```
 
 `readPuzzleSettings` merges whatever the host saved in the mod tool over your declared defaults,
-so the puzzle works correctly even before anyone's touched its settings. Settings are read once at
-module load (same as everything else sourced from `game.config.json`) — a page reload is needed to
-pick up a change made in the tool while the game is open, same as any other config edit.
+so the puzzle works correctly even before anyone's touched its settings.
 
 Don't force a schema onto a puzzle that doesn't need one — it's entirely valid to export none, as
 `WordMatch.js` does.
+
+## Difficulty presets
+
+The Host picks a match-wide difficulty — Easy, Medium, or Hard — in the lobby. Any
+`settingsSchema` field on any minigame can have a **per-level override** for that field, editable
+from the mod tool's Minigames tab right below that game's base settings (three sub-blocks, one per
+level). A level's override is optional per field: leave it blank in the tool and that field just
+falls back to the base value for every difficulty — you only override the fields that actually
+matter for difficulty.
+
+This is why settings must be read **inside `mount()`** and not at module load: difficulty is a
+per-match, host-chosen value (it can change between rounds, or even between two matches without
+reloading the page), so `readPuzzleSettings(id, schema, difficulty)` has to be called fresh every
+time a turn starts, using whatever difficulty the current match is set to — a module-top-level
+`const settings = readPuzzleSettings(...)` would freeze in whatever difficulty happened to be
+active the moment the page first loaded.
+
+**Worked example** — `Stroop.js` exposes `colorCount` (how many of its 8 defined color swatches are
+actually in rotation this turn) as a difficulty knob:
+
+```js
+export const settingsSchema = [
+  // ...the 8 color fields...
+  { key: 'colorCount', label: 'Number of colors in rotation (4-8)', type: 'number', default: 6 },
+];
+
+function mount(contentEl, onAttempt, { difficulty }) {
+  const settings = readPuzzleSettings('stroop', settingsSchema, difficulty);
+  const ACTIVE_COLORS = ALL_EIGHT_COLORS.slice(0, settings.colorCount);
+  // Easy might set colorCount=4 in the mod tool, Hard might set it to 8 — Medium (and any turn
+  // played before anyone's touched the presets) just uses the base value of 6.
+}
+```
+
+No new export or file convention is needed to make a field difficulty-tunable — it's just a
+regular `settingsSchema` field that the puzzle's own code happens to read per-turn. `WhackAMole.js`
+does the same with its existing `gridSize` field (no new field needed at all), and `Swipe.js` adds
+a `complexRuleChance` field to weight how often a harder ("don't"/"opposite") rule shows up vs a
+plain swipe.
 
 ## Quick checklist before you're done
 

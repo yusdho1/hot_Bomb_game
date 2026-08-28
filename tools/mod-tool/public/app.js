@@ -158,13 +158,26 @@ function renderMinigames() {
     list.appendChild(li);
   });
 
-  const registered = new Set(state.config.minigames.map((m) => m.id.toLowerCase()));
-  const unregistered = state.discovered.minigameFiles.filter(
-    (f) => !registered.has(f.replace(/\.js$/, '').toLowerCase())
-  );
+  // Compared by the id each file's default export actually declares — not by guessing an id from
+  // the filename — so a config entry that no longer matches any real file (e.g. the file's `id`
+  // was edited/renamed without updating game.config.json, or vice versa) gets caught here instead
+  // of silently sitting in config as a puzzle that can never actually be picked.
+  const realIds = new Set(state.discovered.minigameFiles.map((m) => m.id));
+  const configuredIds = new Set(state.config.minigames.map((m) => m.id));
+
+  const unregistered = state.discovered.minigameFiles.filter((m) => !configuredIds.has(m.id));
+  const orphanedConfigEntries = state.config.minigames.filter((m) => !realIds.has(m.id));
+
+  const messages = [];
   if (unregistered.length > 0) {
-    showStatus(`Found file(s) in registry/ with no config entry: ${unregistered.join(', ')}`);
+    messages.push(`File(s) with no config entry: ${unregistered.map((m) => `${m.file} (id "${m.id}")`).join(', ')}`);
   }
+  if (orphanedConfigEntries.length > 0) {
+    messages.push(
+      `Config id(s) matching no real file's id — dead, can never be picked: ${orphanedConfigEntries.map((m) => `"${m.id}"`).join(', ')}`
+    );
+  }
+  if (messages.length > 0) showStatus(messages.join(' | '), true);
 }
 
 document.getElementById('scaffold-btn').addEventListener('click', async () => {
@@ -187,8 +200,39 @@ document.getElementById('scaffold-btn').addEventListener('click', async () => {
 
 // --- per-game settings ---
 
+const DIFFICULTY_LEVELS = [
+  { key: 'easy', label: 'Easy' },
+  { key: 'medium', label: 'Medium' },
+  { key: 'hard', label: 'Hard' },
+];
+
 function minigameSettingsInputId(gameId, key) {
   return `mgset-${gameId}-${key}`;
+}
+
+function minigameDifficultyInputId(gameId, level, key) {
+  return `mgset-${gameId}-${level}-${key}`;
+}
+
+function buildSettingsForm(schema, getValue) {
+  const form = document.createElement('div');
+  form.className = 'form-grid';
+  schema.forEach((field) => {
+    const label = document.createElement('label');
+    label.textContent = field.label || field.key;
+
+    const input = document.createElement('input');
+    input.type = field.type === 'number' ? 'number' : field.type === 'color' ? 'color' : 'text';
+    if (field.type === 'number') input.step = 'any';
+    label.htmlFor = getValue.id(field);
+    input.id = getValue.id(field);
+    const value = getValue.value(field);
+    input.value = value !== undefined && value !== null ? value : '';
+
+    form.appendChild(label);
+    form.appendChild(input);
+  });
+  return form;
 }
 
 function renderMinigameSettings() {
@@ -210,6 +254,7 @@ function renderMinigameSettings() {
     const schema = state.schemas[gameId];
     if (!state.config.minigameSettings[gameId]) state.config.minigameSettings[gameId] = {};
     const saved = state.config.minigameSettings[gameId];
+    if (!saved.difficultyPresets) saved.difficultyPresets = {};
 
     const block = document.createElement('div');
     block.className = 'category-block';
@@ -218,26 +263,40 @@ function renderMinigameSettings() {
     heading.textContent = gameId;
     block.appendChild(heading);
 
-    const form = document.createElement('div');
-    form.className = 'form-grid';
-
-    schema.forEach((field) => {
-      const label = document.createElement('label');
-      label.textContent = field.label || field.key;
-      label.htmlFor = minigameSettingsInputId(gameId, field.key);
-
-      const input = document.createElement('input');
-      input.id = minigameSettingsInputId(gameId, field.key);
-      input.type = field.type === 'number' ? 'number' : field.type === 'color' ? 'color' : 'text';
-      if (field.type === 'number') input.step = 'any';
-      const current = saved[field.key] !== undefined ? saved[field.key] : field.default;
-      input.value = current !== undefined ? current : '';
-
-      form.appendChild(label);
-      form.appendChild(input);
+    const baseForm = buildSettingsForm(schema, {
+      id: (field) => minigameSettingsInputId(gameId, field.key),
+      value: (field) => (saved[field.key] !== undefined ? saved[field.key] : field.default),
     });
+    block.appendChild(baseForm);
 
-    block.appendChild(form);
+    // Color swatches aren't difficulty-tunable (a native color input can't represent "blank" —
+    // it always resolves to a real hex value — so "leave it blank to inherit" can't work for
+    // them). Only number/string fields get a per-difficulty override.
+    const tunableSchema = schema.filter((field) => field.type !== 'color');
+
+    if (tunableSchema.length > 0) {
+      DIFFICULTY_LEVELS.forEach(({ key: level, label: levelLabel }) => {
+        if (!saved.difficultyPresets[level]) saved.difficultyPresets[level] = {};
+        const preset = saved.difficultyPresets[level];
+
+        const subHeading = document.createElement('h5');
+        subHeading.className = 'difficulty-subheading';
+        subHeading.textContent = levelLabel;
+        block.appendChild(subHeading);
+
+        const hint = document.createElement('p');
+        hint.className = 'hint';
+        hint.textContent = 'Leave a field blank to inherit the base value above.';
+        block.appendChild(hint);
+
+        const presetForm = buildSettingsForm(tunableSchema, {
+          id: (field) => minigameDifficultyInputId(gameId, level, field.key),
+          value: (field) => preset[field.key],
+        });
+        block.appendChild(presetForm);
+      });
+    }
+
     container.appendChild(block);
   });
 }
@@ -247,9 +306,25 @@ document.getElementById('minigame-settings-save-btn').addEventListener('click', 
     const schema = state.schemas[gameId];
     if (!state.config.minigameSettings[gameId]) state.config.minigameSettings[gameId] = {};
     const saved = state.config.minigameSettings[gameId];
+    if (!saved.difficultyPresets) saved.difficultyPresets = {};
+
     schema.forEach((field) => {
       const input = document.getElementById(minigameSettingsInputId(gameId, field.key));
       saved[field.key] = field.type === 'number' ? Number(input.value) : input.value;
+    });
+
+    const tunableSchema = schema.filter((field) => field.type !== 'color');
+    DIFFICULTY_LEVELS.forEach(({ key: level }) => {
+      if (!saved.difficultyPresets[level]) saved.difficultyPresets[level] = {};
+      const preset = saved.difficultyPresets[level];
+      tunableSchema.forEach((field) => {
+        const input = document.getElementById(minigameDifficultyInputId(gameId, level, field.key));
+        if (input.value === '') {
+          delete preset[field.key];
+        } else {
+          preset[field.key] = field.type === 'number' ? Number(input.value) : input.value;
+        }
+      });
     });
   });
   try {

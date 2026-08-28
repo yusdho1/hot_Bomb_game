@@ -96,9 +96,14 @@ actually in the code) and renders an editable form for it in the **Minigames** t
 clearly labeled section for that specific game — so a match-wide numeric setting (Settings tab)
 and a single puzzle's own tunable (e.g. Stroop's four swatch colors, or WhackAMole's grid size and
 mole visibility time) never get mixed together. Saved values live in `game.config.json`'s
-`minigameSettings[id]`, read by the puzzle at module load via `readPuzzleSettings(id, schema)`
-from `src/render/puzzles/puzzleSettings.js`. A puzzle with no `settingsSchema` just doesn't get a
-section — that's the normal case for a puzzle with nothing worth exposing.
+`minigameSettings[id]`, read by the puzzle inside `mount()` via
+`readPuzzleSettings(id, schema, difficulty)` from `src/render/puzzles/puzzleSettings.js`. A puzzle
+with no `settingsSchema` just doesn't get a section — that's the normal case for a puzzle with
+nothing worth exposing.
+
+Each field can also get a per-difficulty (Easy/Medium/Hard) override, shown as three extra
+sub-blocks below a game's base settings — see "Difficulty presets" in `DESIGN_GUIDELINES.md` for
+the full convention and a worked example (`Stroop.js`'s `colorCount`).
 
 ## Sounds
 

@@ -35,12 +35,14 @@ function mount(contentEl, onAttempt) {
   let destroyed = false;
   let activePointer = null;
 
-  // Root container styling matching system guidelines
+  // Root container styling matching system guidelines. No fixed/100% height here — contentEl
+  // already carries the shared .puzzle-content class, which shrinks to fit .puzzle-panel's
+  // available space; forcing height:100% against that flex-auto-sized ancestor did nothing
+  // useful and masked the real fix (the fixed-px card heights below).
   contentEl.style.display = 'flex';
   contentEl.style.flexDirection = 'column';
   contentEl.style.justifyContent = 'space-between';
   contentEl.style.alignItems = 'center';
-  contentEl.style.height = '100%';
   contentEl.style.padding = '10px 0';
   contentEl.style.userSelect = 'none';
   contentEl.style.touchAction = 'none';
@@ -110,7 +112,7 @@ function mount(contentEl, onAttempt) {
       card.style.display = 'flex';
       card.style.alignItems = 'center';
       card.style.justifyContent = 'center';
-      card.style.height = '60px';
+      card.style.height = 'clamp(36px, 8vh, 60px)';
       card.style.cursor = 'grab';
       card.style.position = 'relative';
       card.style.zIndex = '1';
@@ -184,7 +186,7 @@ function mount(contentEl, onAttempt) {
       target.style.display = 'flex';
       target.style.alignItems = 'center';
       target.style.justifyContent = 'center';
-      target.style.height = '60px';
+      target.style.height = 'clamp(36px, 8vh, 60px)';
 
       bottomRow.appendChild(target);
     });
@@ -202,7 +204,7 @@ function mount(contentEl, onAttempt) {
 }
 
 export default {
-  id: 'emojimatch',
+  id: 'wordmatch',
   titleText: 'MATCH PAIRS',
   mount,
 };

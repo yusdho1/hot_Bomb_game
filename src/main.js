@@ -26,6 +26,11 @@ const zipEnabledCheckbox = document.getElementById('zip-enabled-checkbox');
 const zipDurationMinusBtn = document.getElementById('zip-duration-minus-btn');
 const zipDurationPlusBtn = document.getElementById('zip-duration-plus-btn');
 const zipDurationValueEl = document.getElementById('zip-duration-value');
+const streakMinusBtn = document.getElementById('streak-minus-btn');
+const streakPlusBtn = document.getElementById('streak-plus-btn');
+const streakValueEl = document.getElementById('streak-value');
+const difficultySelectorEl = document.getElementById('difficulty-selector');
+const difficultyBtns = Array.from(difficultySelectorEl.querySelectorAll('button'));
 const startBtn = document.getElementById('start-btn');
 const clientWaitingEl = document.getElementById('client-waiting');
 const lobbyStatusEl = document.getElementById('lobby-status');
@@ -33,6 +38,7 @@ const lobbyStatusEl = document.getElementById('lobby-status');
 const lobbyEl = document.getElementById('lobby');
 const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
+const turnNoticeToastEl = document.getElementById('turn-notice-toast');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
 const throwTomatoBtn = document.getElementById('throw-tomato-btn');
 const zipOverlayEl = document.getElementById('zip-overlay');
@@ -80,11 +86,62 @@ const howToPlayBtn = document.getElementById('how-to-play-btn');
 const howToPlayModalEl = document.getElementById('how-to-play-modal');
 const howToPlayXBtn = document.getElementById('how-to-play-x-btn');
 const howToPlayCloseBtn = document.getElementById('how-to-play-close-btn');
+const rulePageEl = document.getElementById('rule-page');
+const howToPlayDotsEl = document.getElementById('how-to-play-dots');
+const howToPlayPrevBtn = document.getElementById('how-to-play-prev-btn');
+const howToPlayNextBtn = document.getElementById('how-to-play-next-btn');
 const gameOverShieldImgEl = document.getElementById('game-over-shield-img');
 
 const DURATION_STEPS = [30, 60, 90, 120];
 const ZIP_DURATION_STEPS = [1, 1.5, 2, 2.5, 3];
+const STREAK_STEPS = [1, 2, 3, 4];
+const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
 const TOMATO_STAIN_PX = 90;
+
+// One topic per page, stepped through with the prev/next arrows instead of shown all at once.
+const HOW_TO_PLAY_PAGES = [
+  {
+    icon: '/UI/Bomb.png',
+    title: 'Pass the Bomb',
+    text: "Whoever's holding it must solve puzzles of the same type in a row before their fuse runs out.",
+  },
+  {
+    emoji: '⏱️',
+    title: 'Two Timers',
+    text: 'Your personal fuse eliminates YOU if it hits zero. The match clock ends the whole game — whoever\'s holding the bomb when it runs out loses.',
+  },
+  {
+    icon: '/UI/Sprites/IconCloseXRed.png',
+    title: 'Wrong Answer',
+    text: "Resets your streak back to 0, but your fuse keeps ticking either way — don't panic, just keep going.",
+  },
+  {
+    icon: '/UI/Sprites/Tomato_Stain.png',
+    title: 'Snake Sabotage',
+    text: "While you wait for your turn, solve the Snake puzzle to throw a tomato at whoever's holding the bomb!",
+  },
+  {
+    icon: '/UI/Sprites/IconCoinGold.png',
+    title: 'Earning Points',
+    text: 'Solving Snake, or finishing a fast streak as the holder, earns you points to spend in the Shop.',
+  },
+  {
+    icon: '/UI/Sprites/IconShop.png',
+    title: 'The Shop',
+    text: "While you wait for your turn, spend points on extra fuse time for your next turn, an instant tomato throw, or a skip-ahead pass.",
+  },
+  {
+    icon: '/UI/Sprites/Sheild.png',
+    title: 'Last One Standing',
+    text: 'Survive to win the round.',
+  },
+  {
+    emoji: '📱',
+    title: 'Playing on Phones',
+    text: "If the colors look off, turn off your phone's night mode or blue-light filter while playing.",
+  },
+];
+let howToPlayPageIndex = 0;
 
 let role = null; // 'host' | 'client'
 let host = null;
@@ -95,6 +152,7 @@ let phaserGame = null;
 let lastMatchState = null;
 let lastEliminationNoticeId = undefined;
 let lastZipStainSeq = 0;
+let lastTurnNoticeSeq = 0;
 let puzzleHandle = null;
 let zipHandle = null;
 let vibratedThresholds = new Set();
@@ -102,6 +160,8 @@ let avatarCreatorHandle = null;
 let currentAvatarParts = loadSavedAvatarParts() || randomAvatarParts();
 let matchDurationSeconds = 60;
 let zipStainDurationSeconds = 1.5;
+let streakTarget = 3;
+let currentDifficulty = 'medium';
 let currentRoomCode = null;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
@@ -172,7 +232,15 @@ function resetToEntry(message) {
   currentRoomCode = null;
 }
 
-function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurationSeconds, winCounts) {
+function renderLobbyPlayers(
+  players,
+  matchDurationSeconds,
+  zipEnabled,
+  zipDurationSeconds,
+  winCounts,
+  streakTargetValue,
+  difficultyValue
+) {
   playerListEl.innerHTML = '';
   players.forEach((player) => {
     const li = document.createElement('li');
@@ -214,8 +282,16 @@ function renderLobbyPlayers(players, matchDurationSeconds, zipEnabled, zipDurati
   setDurationDisplay(matchDurationSeconds);
   if (zipEnabled !== undefined) zipEnabledCheckbox.checked = zipEnabled;
   if (zipDurationSeconds !== undefined) setZipDurationDisplay(zipDurationSeconds);
-  clientWaitingEl.textContent = `Waiting for host to start... (Match length: ${matchDurationSeconds}s)`;
+  if (streakTargetValue !== undefined) setStreakDisplay(streakTargetValue);
+  if (difficultyValue !== undefined) setDifficultyDisplay(difficultyValue);
+  clientWaitingEl.textContent =
+    `Waiting for host to start... (Match length: ${matchDurationSeconds}s, ` +
+    `streak: ${streakTarget}, difficulty: ${capitalize(currentDifficulty)})`;
   startBtn.disabled = players.length < 2;
+}
+
+function capitalize(word) {
+  return word ? word.charAt(0).toUpperCase() + word.slice(1) : word;
 }
 
 function setDurationDisplay(seconds) {
@@ -238,6 +314,24 @@ function stepZipDuration(delta) {
   const nextSeconds = ZIP_DURATION_STEPS[nextIndex];
   setZipDurationDisplay(nextSeconds);
   if (role === 'host' && host) host.setZipSettings({ stainDurationSeconds: nextSeconds });
+}
+
+function setStreakDisplay(value) {
+  streakTarget = value;
+  streakValueEl.textContent = String(value);
+  streakMinusBtn.disabled = value <= STREAK_STEPS[0];
+  streakPlusBtn.disabled = value >= STREAK_STEPS[STREAK_STEPS.length - 1];
+}
+
+function stepStreak(delta) {
+  const nextValue = Math.max(STREAK_STEPS[0], Math.min(STREAK_STEPS[STREAK_STEPS.length - 1], streakTarget + delta));
+  setStreakDisplay(nextValue);
+  if (role === 'host' && host) host.setStreakTarget(nextValue);
+}
+
+function setDifficultyDisplay(level) {
+  currentDifficulty = level;
+  difficultyBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.level === level));
 }
 
 function startGame(matchState) {
@@ -288,6 +382,7 @@ function applyMatchState(matchState) {
   if (scene) scene.applyMatchState(matchState);
   applyEliminationNotice(matchState.eliminationNotice);
   checkZipStain(matchState);
+  checkTurnNotice(matchState);
 
   if (!pointsBalanceEl.classList.contains('hidden')) updatePointsBalanceChip(matchState);
   if (!shopOverlayEl.classList.contains('hidden')) updateShopModal(matchState);
@@ -354,7 +449,11 @@ function applyEliminationNotice(notice) {
 
 function mountPuzzleUI() {
   puzzleOverlayEl.classList.remove('hidden');
-  puzzleHandle = createPuzzleOverlay(puzzleOverlayEl, { onAttempt: submitPuzzleResult });
+  puzzleHandle = createPuzzleOverlay(puzzleOverlayEl, {
+    onAttempt: submitPuzzleResult,
+    streakTarget: lastMatchState ? lastMatchState.streakTarget : 3,
+    difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
+  });
   if (lastMatchState) {
     puzzleHandle.updateTimer(lastMatchState.bombTimer);
     puzzleHandle.updateStreak(lastMatchState.streakCount);
@@ -493,6 +592,27 @@ function checkZipStain(matchState) {
   }
 }
 
+// Detects a NEW "bomb changed hands" event via its seq number, same pattern as checkZipStain —
+// fires for every player, every time selectNextHolder actually assigns a new holder (a normal
+// streak-completion pass or a purchased skip-ahead pass consuming itself).
+let turnNoticeHideTimeout = null;
+function checkTurnNotice(matchState) {
+  const notice = matchState.turnNotice;
+  if (!notice || notice.seq === lastTurnNoticeSeq) return;
+  lastTurnNoticeSeq = notice.seq;
+
+  const toName = notice.toName || 'someone';
+  const message =
+    notice.skipped && notice.skipped.length > 0
+      ? `${notice.skipped.map((p) => p.name).join(', ')} skipped their turn — bomb went to ${toName}!`
+      : `Bomb passed to ${toName}!`;
+
+  turnNoticeToastEl.textContent = message;
+  turnNoticeToastEl.classList.add('visible');
+  clearTimeout(turnNoticeHideTimeout);
+  turnNoticeHideTimeout = setTimeout(() => turnNoticeToastEl.classList.remove('visible'), 2500);
+}
+
 function showTomatoStain(durationSeconds) {
   // Land it on the puzzle panel itself (what the holder is actually looking at), not anywhere
   // in the letterboxed game-container around it.
@@ -519,6 +639,8 @@ function showGameOver({ winners, loserId, winCounts }) {
   unmountPuzzleUI();
   unmountWaitingUI();
   applyEliminationNotice(null);
+  clearTimeout(turnNoticeHideTimeout);
+  turnNoticeToastEl.classList.remove('visible');
   SoundManager.stopGlobalTicking();
   SoundManager.stopPersonalAlarm();
   gameOverPanelEl.classList.remove('hidden');
@@ -583,6 +705,9 @@ function returnToLobby(message) {
   lastMatchState = null;
   lastEliminationNoticeId = undefined;
   lastZipStainSeq = 0;
+  lastTurnNoticeSeq = 0;
+  clearTimeout(turnNoticeHideTimeout);
+  turnNoticeToastEl.classList.remove('visible');
   vibratedThresholds.clear();
   SoundManager.stopGlobalTicking();
   SoundManager.stopPersonalAlarm();
@@ -602,7 +727,9 @@ function returnToLobby(message) {
     message.matchDurationSeconds,
     message.zipEnabled,
     message.zipStainDurationSeconds,
-    message.winCounts
+    message.winCounts,
+    message.streakTarget,
+    message.difficulty
   );
 }
 
@@ -652,9 +779,53 @@ avatarCreatorXBtn.addEventListener('click', () => {
 
 // --- How to Play ---
 
-howToPlayBtn.addEventListener('click', () => howToPlayModalEl.classList.remove('hidden'));
+function renderHowToPlayPage(index) {
+  howToPlayPageIndex = index;
+  const page = HOW_TO_PLAY_PAGES[index];
+
+  rulePageEl.innerHTML = '';
+  if (page.icon) {
+    const img = document.createElement('img');
+    img.className = 'rule-page-icon';
+    img.src = page.icon;
+    img.alt = '';
+    rulePageEl.appendChild(img);
+  } else {
+    const emojiEl = document.createElement('div');
+    emojiEl.className = 'rule-page-icon-emoji';
+    emojiEl.textContent = page.emoji;
+    rulePageEl.appendChild(emojiEl);
+  }
+  const titleEl = document.createElement('div');
+  titleEl.className = 'rule-page-title';
+  titleEl.textContent = page.title;
+  rulePageEl.appendChild(titleEl);
+  const textEl = document.createElement('div');
+  textEl.className = 'rule-page-text';
+  textEl.textContent = page.text;
+  rulePageEl.appendChild(textEl);
+
+  howToPlayDotsEl.innerHTML = '';
+  HOW_TO_PLAY_PAGES.forEach((_, i) => {
+    const dot = document.createElement('div');
+    dot.className = 'puzzle-dot';
+    if (i === index) dot.classList.add('filled');
+    howToPlayDotsEl.appendChild(dot);
+  });
+}
+
+howToPlayBtn.addEventListener('click', () => {
+  renderHowToPlayPage(0);
+  howToPlayModalEl.classList.remove('hidden');
+});
 howToPlayXBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
 howToPlayCloseBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
+howToPlayPrevBtn.addEventListener('click', () => {
+  renderHowToPlayPage((howToPlayPageIndex - 1 + HOW_TO_PLAY_PAGES.length) % HOW_TO_PLAY_PAGES.length);
+});
+howToPlayNextBtn.addEventListener('click', () => {
+  renderHowToPlayPage((howToPlayPageIndex + 1) % HOW_TO_PLAY_PAGES.length);
+});
 
 // --- Room code copy ---
 
@@ -717,7 +888,9 @@ joinConfirmBtn.addEventListener('click', () => {
       message.matchDurationSeconds,
       message.zipEnabled,
       message.zipStainDurationSeconds,
-      message.winCounts
+      message.winCounts,
+      message.streakTarget,
+      message.difficulty
     );
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
@@ -760,6 +933,17 @@ zipEnabledCheckbox.addEventListener('change', () => {
   if (role === 'host' && host) host.setZipSettings({ enabled: zipEnabledCheckbox.checked });
 });
 
+streakMinusBtn.addEventListener('click', () => stepStreak(-1));
+streakPlusBtn.addEventListener('click', () => stepStreak(1));
+
+difficultyBtns.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const level = btn.dataset.level;
+    setDifficultyDisplay(level);
+    if (role === 'host' && host) host.setDifficulty(level);
+  });
+});
+
 startBtn.addEventListener('click', () => {
   if (role === 'host' && host) host.beginMatch();
 });
@@ -783,7 +967,9 @@ hostBtn.addEventListener('click', () => {
       matchState.matchDurationSeconds,
       matchState.zipEnabled,
       matchState.zipStainDurationSeconds,
-      matchState.winCounts
+      matchState.winCounts,
+      matchState.streakTarget,
+      matchState.difficulty
     );
   host.onMatchStarted = (matchState) => startGame(matchState);
   host.onStateUpdate = (matchState) => applyMatchState(matchState);

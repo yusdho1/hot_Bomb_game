@@ -9,6 +9,7 @@
     ],
     "personalTimerSeconds": 10,
     "streakTarget": 3,
+    "difficultyDefault": "medium",
     "zipEnabledDefault": true,
     "zipStainSecondsDefault": 1.5,
     "zipStainSecondsSteps": [
@@ -51,21 +52,56 @@
   ],
   "minigameSettings": {
     "stroop": {
-      "colorGreen": "#4cd137",
-      "colorPurple": "#9b59b6",
+      "colorGreen": "#3be421",
+      "colorPurple": "#6e0099",
       "colorOrange": "#ffa200",
-      "colorRed": "#ec3722",
+      "colorRed": "#f02e19",
       "colorBlue": "#1148ee",
       "colorYellow": "#e8d721",
-      "colorPink": "#e95ef3",
-      "colorTeal": "#069494"
+      "colorPink": "#f285f9",
+      "colorTeal": "#069494",
+      "colorCount": 6,
+      "difficultyPresets": {
+        "easy": {
+          "colorCount": 4
+        },
+        "medium": {
+          "colorCount": 6
+        },
+        "hard": {
+          "colorCount": 8
+        }
+      }
     },
     "swipe": {
-      "minSwipeDistance": 30
+      "minSwipeDistance": 30,
+      "complexRuleChance": 50,
+      "difficultyPresets": {
+        "easy": {
+          "complexRuleChance": 0
+        },
+        "medium": {
+          "complexRuleChance": 40
+        },
+        "hard": {
+          "complexRuleChance": 75
+        }
+      }
     },
     "whackamole": {
-      "gridSize": 12,
-      "moleVisibleMs": 1100
+      "gridSize": 9,
+      "moleVisibleMs": 1100,
+      "difficultyPresets": {
+        "easy": {
+          "gridSize": 6
+        },
+        "medium": {
+          "gridSize": 9
+        },
+        "hard": {
+          "gridSize": 12
+        }
+      }
     }
   },
   "sounds": {

@@ -224,6 +224,16 @@ button.save-btn,
   color: var(--text-dim);
 }
 
+.difficulty-subheading {
+  margin: 14px 0 2px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-dim);
+}
+
 .thumb-grid {
   display: flex;
   flex-wrap: wrap;

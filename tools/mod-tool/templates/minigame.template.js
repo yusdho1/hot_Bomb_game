@@ -7,12 +7,16 @@ import { readPuzzleSettings } from '../puzzleSettings.js';
 
 // Optional — delete this whole block if your puzzle has nothing worth exposing to hosts. Anything
 // listed here shows up as an editable field in the mod tool, grouped under this puzzle's own
-// section. Supported types: 'number', 'string', 'color'.
+// section (including a per-difficulty Easy/Medium/Hard override for any field, automatically —
+// see the "Difficulty presets" section of DESIGN_GUIDELINES.md). Supported types: 'number',
+// 'string', 'color'.
 export const settingsSchema = [{ key: 'promptText', label: 'Prompt text', type: 'string', default: 'TODO: replace me' }];
 
-const settings = readPuzzleSettings('__ID__', settingsSchema);
-
-function mount(contentEl, onAttempt) {
+// Settings must be read INSIDE mount(), not at module load — difficulty is chosen per match by
+// the Host, so this has to be re-resolved every time a turn starts, using whatever difficulty
+// that match is currently set to.
+function mount(contentEl, onAttempt, { difficulty } = {}) {
+  const settings = readPuzzleSettings('__ID__', settingsSchema, difficulty);
   let destroyed = false;
   let correctAnswer = null;
 
@@ -65,7 +69,7 @@ function mount(contentEl, onAttempt) {
   };
 }
 
-// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt) => {unmount} }
+// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt, { difficulty }) => {unmount} }
 // titleImg points at a banner image under public/UI/ (matches the other puzzles' style); use
 // titleText instead for a plain text banner if you don't have art yet.
 export default {

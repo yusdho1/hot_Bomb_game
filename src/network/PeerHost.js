@@ -6,6 +6,8 @@ import {
   removePlayer,
   setMatchDuration,
   setZipSettings,
+  setStreakTarget,
+  setDifficulty,
   startMatch,
   tickTimers,
   selectNextHolder,
@@ -89,6 +91,20 @@ export class PeerHost {
   setZipSettings(settings) {
     if (!this.matchState || this.matchState.phase !== 'lobby') return;
     setZipSettings(this.matchState, settings);
+    this._emitLobbyUpdate();
+  }
+
+  // Host-only lobby control: how many correct attempts in a row (1-4) pass the bomb.
+  setStreakTarget(value) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setStreakTarget(this.matchState, value);
+    this._emitLobbyUpdate();
+  }
+
+  // Host-only lobby control: 'easy' | 'medium' | 'hard', tunes each minigame's own difficulty knobs.
+  setDifficulty(level) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setDifficulty(this.matchState, level);
     this._emitLobbyUpdate();
   }
 

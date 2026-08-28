@@ -9,19 +9,7 @@ export const settingsSchema = [
   { key: 'colorPink', label: 'Pink swatch', type: 'color', default: '#E84393' },
   { key: 'colorRed', label: 'Red swatch', type: 'color', default: '#E74C3C' },
   { key: 'colorTeal', label: 'Teal swatch', type: 'color', default: '#1ABC9C' },
-];
-
-const settings = readPuzzleSettings('stroop', settingsSchema);
-
-const ALL_COLORS = [
-  { name: 'GREEN', hex: settings.colorGreen },
-  { name: 'PURPLE', hex: settings.colorPurple },
-  { name: 'ORANGE', hex: settings.colorOrange },
-  { name: 'BLUE', hex: settings.colorBlue },
-  { name: 'TEAL', hex: settings.colorTeal },
-  { name: 'YELLOW', hex: settings.colorYellow },
-  { name: 'PINK', hex: settings.colorPink },
-  { name: 'RED', hex: settings.colorRed },
+  { key: 'colorCount', label: 'Number of colors in rotation (4-8)', type: 'number', default: 6 },
 ];
 
 function shuffle(array) {
@@ -33,7 +21,19 @@ function shuffle(array) {
   return arr;
 }
 
-function mount(contentEl, onAttempt) {
+function mount(contentEl, onAttempt, { difficulty } = {}) {
+  const settings = readPuzzleSettings('stroop', settingsSchema, difficulty);
+  const ALL_COLORS = [
+    { name: 'GREEN', hex: settings.colorGreen },
+    { name: 'PURPLE', hex: settings.colorPurple },
+    { name: 'ORANGE', hex: settings.colorOrange },
+    { name: 'BLUE', hex: settings.colorBlue },
+    { name: 'TEAL', hex: settings.colorTeal },
+    { name: 'YELLOW', hex: settings.colorYellow },
+    { name: 'PINK', hex: settings.colorPink },
+    { name: 'RED', hex: settings.colorRed },
+  ].slice(0, Math.max(4, Math.min(8, settings.colorCount)));
+
   let destroyed = false;
   let correctAnswer = null;
   let lastWordName = null;

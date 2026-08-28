@@ -122,7 +122,7 @@ export const ZipPuzzle = {
 
     const banner = document.createElement('div');
     banner.className = 'zip-banner';
-    banner.textContent = 'SABOTAGE!';
+    banner.textContent = 'SNAKE!';
     panel.appendChild(banner);
 
     const hint = document.createElement('div');

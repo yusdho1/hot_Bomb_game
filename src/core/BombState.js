@@ -2,11 +2,16 @@ import gameConfig from '../config/game.config.json';
 
 export const DEFAULT_MATCH_DURATION = gameConfig.settings.matchDurationDefault;
 export const PERSONAL_TIMER_SECONDS = gameConfig.settings.personalTimerSeconds;
-export const STREAK_TARGET = gameConfig.settings.streakTarget;
+export const DEFAULT_STREAK_TARGET = gameConfig.settings.streakTarget;
 export const DEFAULT_ZIP_ENABLED = gameConfig.settings.zipEnabledDefault;
 export const DEFAULT_ZIP_STAIN_SECONDS = gameConfig.settings.zipStainSecondsDefault;
+export const DEFAULT_DIFFICULTY = gameConfig.settings.difficultyDefault || 'medium';
 
 const POINTS = gameConfig.settings.points;
+
+const STREAK_TARGET_MIN = 1;
+const STREAK_TARGET_MAX = 4;
+const DIFFICULTY_LEVELS = new Set(['easy', 'medium', 'hard']);
 
 // One per player slot (8 max) so no two players in a room ever share a background color.
 export const AVATAR_COLORS = [
@@ -35,7 +40,9 @@ export function createMatchState(
   hostAvatar,
   matchDurationSeconds = DEFAULT_MATCH_DURATION,
   zipEnabled = DEFAULT_ZIP_ENABLED,
-  zipStainDurationSeconds = DEFAULT_ZIP_STAIN_SECONDS
+  zipStainDurationSeconds = DEFAULT_ZIP_STAIN_SECONDS,
+  streakTarget = DEFAULT_STREAK_TARGET,
+  difficulty = DEFAULT_DIFFICULTY
 ) {
   const matchState = {
     phase: 'lobby',
@@ -43,6 +50,8 @@ export function createMatchState(
     bombHolderId: null,
     bombTimer: PERSONAL_TIMER_SECONDS,
     streakCount: 0,
+    streakTarget,
+    difficulty,
     globalTimeRemaining: matchDurationSeconds,
     matchDurationSeconds,
     eliminationNotice: null,
@@ -50,6 +59,11 @@ export function createMatchState(
     zipStainDurationSeconds,
     zipStain: null,
     zipStainSeq: 0,
+    // A one-shot "bomb changed hands" event, broadcast the same way as zipStain — clients detect
+    // a new event via turnNotice.seq changing. Set by selectNextHolder whenever it actually
+    // assigns a new holder (not by startMatch — the opening turn isn't a "pass").
+    turnNotice: null,
+    turnNoticeSeq: 0,
     // Host-only bookkeeping (never included in any network snapshot): which alive non-holders
     // have already thrown a tomato this turn. Reset whenever a new holder is assigned.
     _zipThrownThisTurn: new Set(),
@@ -112,6 +126,16 @@ export function setZipSettings(matchState, { enabled, stainDurationSeconds }) {
   if (stainDurationSeconds !== undefined) matchState.zipStainDurationSeconds = stainDurationSeconds;
 }
 
+export function setStreakTarget(matchState, value) {
+  const clamped = Math.min(STREAK_TARGET_MAX, Math.max(STREAK_TARGET_MIN, Math.round(value)));
+  matchState.streakTarget = clamped;
+}
+
+export function setDifficulty(matchState, level) {
+  if (!DIFFICULTY_LEVELS.has(level)) return;
+  matchState.difficulty = level;
+}
+
 export function startMatch(matchState) {
   matchState.phase = 'active';
   matchState.globalTimeRemaining = matchState.matchDurationSeconds;
@@ -146,6 +170,8 @@ export function tickTimers(matchState, deltaSeconds) {
 export function selectNextHolder(matchState, afterPlayerId = matchState.bombHolderId) {
   const order = matchState.players;
   const currentIndex = order.findIndex((p) => p.id === afterPlayerId);
+  const fromPlayer = currentIndex >= 0 ? order[currentIndex] : null;
+  const skipped = [];
 
   for (let offset = 1; offset <= order.length; offset++) {
     const candidate = order[(currentIndex + offset) % order.length];
@@ -156,6 +182,7 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
     // elsewhere), so there's always another alive candidate later in the same pass.
     if (candidate.id === matchState.pendingSkipPass) {
       matchState.pendingSkipPass = null;
+      skipped.push({ id: candidate.id, name: candidate.name });
       continue;
     }
 
@@ -168,6 +195,16 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
     matchState.streakCount = 0;
     matchState.zipStain = null;
     matchState._zipThrownThisTurn = new Set();
+
+    matchState.turnNoticeSeq += 1;
+    matchState.turnNotice = {
+      seq: matchState.turnNoticeSeq,
+      toId: candidate.id,
+      toName: candidate.name,
+      fromId: fromPlayer ? fromPlayer.id : null,
+      fromName: fromPlayer ? fromPlayer.name : null,
+      skipped,
+    };
     return;
   }
 
@@ -186,13 +223,13 @@ export function eliminateCurrentHolder(matchState) {
   return eliminatedId;
 }
 
-// One correct attempt. Advances the streak; only passes the bomb once STREAK_TARGET is reached
-// (selectNextHolder resets the streak for the new holder). Returns true if applied (sender was
-// the actual current holder).
+// One correct attempt. Advances the streak; only passes the bomb once matchState.streakTarget is
+// reached (selectNextHolder resets the streak for the new holder). Returns true if applied
+// (sender was the actual current holder).
 export function resolvePuzzleSuccess(matchState, fromId) {
   if (matchState.phase !== 'active' || fromId !== matchState.bombHolderId) return false;
   matchState.streakCount += 1;
-  if (matchState.streakCount >= STREAK_TARGET) {
+  if (matchState.streakCount >= matchState.streakTarget) {
     const bonus = Math.round(matchState.bombTimer * POINTS.perSecondRemaining);
     matchState.points[fromId] = (matchState.points[fromId] || 0) + bonus;
     selectNextHolder(matchState);
@@ -297,6 +334,8 @@ export function resetToLobby(matchState) {
   matchState.points = {};
   matchState.pendingFuseBonus = {};
   matchState.pendingSkipPass = null;
+  matchState.turnNotice = null;
+  matchState.turnNoticeSeq = 0;
 }
 
 function eliminatePlayer(matchState, playerId) {

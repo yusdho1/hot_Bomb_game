@@ -229,7 +229,11 @@ const server = http.createServer(async (req, res) => {
         config,
         schemas,
         discovered: {
-          minigameFiles: modules.map((m) => m.file),
+          // {file, id} per registry module — id comes from the file's actual default export,
+          // not guessed from the filename, so the UI can flag a config entry whose id doesn't
+          // match what any real file exports (a puzzle can go silently dead in rotation if its
+          // file's `id` and its game.config.json entry's `id` ever drift apart).
+          minigameFiles: modules.map((m) => ({ file: m.file, id: m.id })),
           soundFiles: scanDir(SOUNDS_DIR, null),
           avatarFiles: scanDir(AVATARS_DIR, /\.png$/),
         },

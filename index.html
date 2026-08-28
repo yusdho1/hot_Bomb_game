@@ -3,6 +3,11 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <!-- Tells mobile browsers (Chrome/Samsung Internet's "Force Dark"/"Simplify page" heuristics)
+         that this page already has an intentional dark theme, so they don't try to auto-recolor
+         it. This can't override a true OS-level filter (iOS Night Shift, Android Night Light,
+         third-party blue-light apps) — those tint the whole screen outside any webpage's reach. -->
+    <meta name="color-scheme" content="dark" />
     <title>Timeout Panic</title>
     <link rel="icon" type="image/png" href="/UI/Bomb.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -10,6 +15,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
     <style>
       :root {
+        color-scheme: dark;
         --font-display: 'Baloo 2', system-ui, sans-serif;
         --panel-bg: rgba(22, 16, 48, 0.8);
         --panel-border: #5b4bb8;
@@ -411,6 +417,78 @@
         min-width: 32px;
         text-align: center;
       }
+      #streak-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #streak-row label {
+        font-size: 13px;
+        color: #cfc9f0;
+      }
+      #streak-stepper {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+      #streak-stepper button {
+        width: 24px;
+        height: 24px;
+        min-height: 0;
+        padding: 4px;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        cursor: pointer;
+      }
+      #streak-stepper button img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      #streak-stepper button:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+      }
+      #streak-value {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        min-width: 14px;
+        text-align: center;
+      }
+      #difficulty-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      #difficulty-row label {
+        font-size: 13px;
+        color: #cfc9f0;
+      }
+      #difficulty-selector {
+        display: flex;
+        gap: 4px;
+      }
+      #difficulty-selector button {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 11px;
+        padding: 5px 9px;
+        min-height: 0;
+        border-radius: 10px;
+        border: 2px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.06);
+        color: #cfc9f0;
+        cursor: pointer;
+      }
+      #difficulty-selector button.active {
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        border-color: var(--accent-orange-border);
+        color: #7a2000;
+      }
       #game-over-shield-img {
         width: 64px;
         margin-top: -8px;
@@ -470,6 +548,29 @@
         z-index: 5;
       }
       #elimination-toast.visible {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      #turn-notice-toast {
+        position: absolute;
+        top: 120px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-10px);
+        background-image: url('/UI/Sprites/TicketCardOrangeGlowLandscape.png');
+        background-size: 100% 100%;
+        background-repeat: no-repeat;
+        padding: 14px 30px;
+        font-family: var(--font-display);
+        font-weight: 800;
+        color: #3a1400;
+        font-size: 13px;
+        white-space: nowrap;
+        opacity: 0;
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+        z-index: 5;
+      }
+      #turn-notice-toast.visible {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
@@ -630,12 +731,16 @@
         width: 88%;
         max-width: 300px;
         max-height: 92%;
+        /* Content is sized to shrink and fit (clamp()/vh-based children below) rather than rely
+           on this — kept only as a last-resort safety net so nothing ever gets unreadably cut
+           off if a future puzzle's content is taller than expected. */
         overflow-y: auto;
         overflow-x: hidden;
         display: flex;
         flex-direction: column;
         align-items: center;
         gap: 10px;
+        min-height: 0;
         padding: 14px 14px 10px;
         border-radius: 20px;
         border: 2px solid var(--panel-border);
@@ -697,8 +802,8 @@
         padding: 0 2px;
       }
       .puzzle-fuse-bomb {
-        width: 28px;
-        height: 28px;
+        width: clamp(20px, 5vh, 28px);
+        height: clamp(20px, 5vh, 28px);
         flex-shrink: 0;
         filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
       }
@@ -738,12 +843,13 @@
         gap: 10px;
       }
       .puzzle-dot {
-        width: 18px;
-        height: 18px;
+        width: clamp(10px, 3.2vh, 18px);
+        height: clamp(10px, 3.2vh, 18px);
         border-radius: 50%;
         background: #5a1414;
         border: 2px solid rgba(255, 255, 255, 0.35);
         box-sizing: border-box;
+        flex-shrink: 0;
       }
       .puzzle-dot.filled {
         background: #ff3b3b;
@@ -756,11 +862,22 @@
         align-items: center;
         gap: 16px;
         position: relative;
+        min-height: 0;
+        flex-shrink: 1;
       }
       .puzzle-footer-logo {
         width: 65%;
         max-width: 170px;
         margin-top: 2px;
+        flex-shrink: 0;
+      }
+      /* First thing to go on a short viewport (landscape phones, or a tall difficulty-scaled
+         grid) — purely decorative, so it's the cheapest thing to drop before anything else has
+         to shrink below a readable size. */
+      @media (max-height: 560px) {
+        .puzzle-footer-logo {
+          display: none;
+        }
       }
       .puzzle-prompt {
         font-family: var(--font-display);
@@ -959,7 +1076,7 @@
         gap: 10px;
       }
       .stroop-btn {
-        min-height: 48px;
+        min-height: clamp(32px, 7vh, 48px);
         border-radius: 10px;
         border: 3px solid rgba(0, 0, 0, 0.35);
         cursor: pointer;
@@ -998,7 +1115,7 @@
       }
       .swipe-zone {
         width: 100%;
-        min-height: 140px;
+        min-height: clamp(90px, 20vh, 140px);
         border-radius: 14px;
         border: 3px dashed rgba(255, 255, 255, 0.4);
         display: flex;
@@ -1011,14 +1128,17 @@
         user-select: none;
       }
       .mole-grid {
-        width: 100%;
-        aspect-ratio: 1 / 1;
+        /* Cell size (grid-template-columns/grid-auto-rows) is set from JS at mount time
+           (WhackAMole.js), the same real-geometry approach ZipPuzzle.js already uses — it reads
+           the container's actual width and a viewport-height budget directly, rather than
+           fighting CSS aspect-ratio/flex interactions to derive a size that's correct for any
+           gridSize (difficulty presets range from 6 to 12+ holes). */
         display: grid;
         grid-template-columns: repeat(3, 1fr);
         gap: 8px;
+        justify-content: center;
       }
       .mole-hole {
-        aspect-ratio: 1 / 1;
         border-radius: 50%;
         background: rgba(0, 0, 0, 0.35);
         border: 2px solid rgba(255, 255, 255, 0.2);
@@ -1213,44 +1333,68 @@
         transform: translateY(1px);
       }
       .how-to-play-panel {
-        max-width: 340px;
+        max-width: 360px;
       }
-      .rules-list {
+      .rule-page {
         width: 100%;
         display: flex;
         flex-direction: column;
-        gap: 14px;
-      }
-      .rule-row {
-        display: flex;
         align-items: center;
-        gap: 12px;
+        gap: 10px;
+        min-height: 200px;
+        justify-content: center;
+        text-align: center;
       }
-      .rule-icon {
-        width: 36px;
-        height: 36px;
+      .rule-page-icon {
+        width: 64px;
+        height: 64px;
         object-fit: contain;
-        flex-shrink: 0;
-        filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+        filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.45));
       }
-      .rule-icon-emoji {
-        width: 36px;
-        height: 36px;
-        flex-shrink: 0;
-        font-size: 26px;
+      .rule-page-icon-emoji {
+        width: 64px;
+        height: 64px;
+        font-size: 46px;
         display: flex;
         align-items: center;
         justify-content: center;
       }
-      .rule-text {
-        font-size: 13px;
-        line-height: 1.4;
-        color: #f2f2f2;
-        text-align: left;
-      }
-      .rule-text strong {
-        color: #ffdd55;
+      .rule-page-title {
         font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 19px;
+        color: #ffdd55;
+        text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      .rule-page-text {
+        font-size: 15px;
+        line-height: 1.5;
+        color: #f2f2f2;
+      }
+      #how-to-play-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        width: 100%;
+      }
+      .how-to-play-arrow-btn {
+        width: 34px;
+        height: 34px;
+        min-height: 0;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff5cc;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 18px;
+        line-height: 1;
+        cursor: pointer;
+      }
+      .how-to-play-arrow-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
       }
       .catch-zone {
         position: relative;
@@ -1349,6 +1493,26 @@
               </button>
             </div>
           </div>
+          <div id="streak-row">
+            <label>Streak to pass</label>
+            <div id="streak-stepper">
+              <button id="streak-minus-btn" type="button" title="Fewer">
+                <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
+              </button>
+              <span id="streak-value">3</span>
+              <button id="streak-plus-btn" type="button" title="More">
+                <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
+              </button>
+            </div>
+          </div>
+          <div id="difficulty-row">
+            <label>Difficulty</label>
+            <div id="difficulty-selector">
+              <button type="button" data-level="easy">Easy</button>
+              <button type="button" data-level="medium">Medium</button>
+              <button type="button" data-level="hard">Hard</button>
+            </div>
+          </div>
           <button id="start-btn" class="btn-primary" disabled>Start Game</button>
         </div>
 
@@ -1360,6 +1524,7 @@
 
     <div id="game-container" class="hidden">
       <div id="elimination-toast"></div>
+      <div id="turn-notice-toast"></div>
       <div id="puzzle-overlay" class="hidden"></div>
 
       <div id="points-balance" class="hidden">
@@ -1458,39 +1623,11 @@
       <div class="puzzle-panel how-to-play-panel">
         <button id="how-to-play-x-btn" class="modal-close-btn" title="Close"></button>
         <div class="modal-title">How to Play</div>
-        <div class="rules-list">
-          <div class="rule-row">
-            <img class="rule-icon" src="/UI/Bomb.png" alt="" />
-            <div class="rule-text">
-              <strong>Pass the Bomb</strong> — whoever's holding it must solve 3 puzzles of the same type in a row
-              before their fuse runs out.
-            </div>
-          </div>
-          <div class="rule-row">
-            <div class="rule-icon-emoji">⏱️</div>
-            <div class="rule-text">
-              <strong>Two Timers</strong> — your personal fuse eliminates YOU if it hits zero. The match clock ends
-              the whole game — whoever's holding the bomb when it runs out loses.
-            </div>
-          </div>
-          <div class="rule-row">
-            <img class="rule-icon" src="/UI/Sprites/IconCloseXRed.png" alt="" />
-            <div class="rule-text">
-              <strong>Wrong Answer</strong> — resets your streak back to 0, but your fuse keeps ticking either way —
-              don't panic, just keep going.
-            </div>
-          </div>
-          <div class="rule-row">
-            <img class="rule-icon" src="/UI/Sprites/Tomato_Stain.png" alt="" />
-            <div class="rule-text">
-              <strong>Tomato Sabotage</strong> — while you wait for your turn, solve the Zip puzzle to throw a
-              tomato at whoever's holding the bomb!
-            </div>
-          </div>
-          <div class="rule-row">
-            <img class="rule-icon" src="/UI/Sprites/Sheild.png" alt="" />
-            <div class="rule-text"><strong>Last One Standing</strong> — survive to win the round.</div>
-          </div>
+        <div id="rule-page" class="rule-page"></div>
+        <div id="how-to-play-nav">
+          <button id="how-to-play-prev-btn" class="how-to-play-arrow-btn" type="button" title="Previous">‹</button>
+          <div id="how-to-play-dots" class="puzzle-dots"></div>
+          <button id="how-to-play-next-btn" class="how-to-play-arrow-btn" type="button" title="Next">›</button>
         </div>
         <button id="how-to-play-close-btn" class="btn-primary">Got it!</button>
       </div>

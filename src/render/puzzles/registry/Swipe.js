@@ -2,26 +2,33 @@ import { readPuzzleSettings } from '../puzzleSettings.js';
 
 export const settingsSchema = [
   { key: 'minSwipeDistance', label: 'Minimum swipe distance (px)', type: 'number', default: 30 },
+  {
+    key: 'complexRuleChance',
+    label: 'Chance of a "don\'t"/"opposite" rule vs a plain swipe (0-100)',
+    type: 'number',
+    default: 50,
+  },
 ];
-
-const settings = readPuzzleSettings('swipe', settingsSchema);
 
 const DIRECTIONS = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
 const OPPOSITE = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
 const ARROW = { UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→' };
-const MIN_SWIPE_DISTANCE = settings.minSwipeDistance;
 
 function randomDirection() {
   return DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];
 }
 
-// Returns null if the gesture was too small to count as a real swipe.
-function classifySwipe(dx, dy) {
-  if (Math.max(Math.abs(dx), Math.abs(dy)) < MIN_SWIPE_DISTANCE) return null;
-  return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'RIGHT' : 'LEFT') : dy > 0 ? 'DOWN' : 'UP';
-}
+function mount(contentEl, onAttempt, { difficulty } = {}) {
+  const settings = readPuzzleSettings('swipe', settingsSchema, difficulty);
+  const MIN_SWIPE_DISTANCE = settings.minSwipeDistance;
+  const COMPLEX_RULE_CHANCE = settings.complexRuleChance;
 
-function mount(contentEl, onAttempt) {
+  // Returns null if the gesture was too small to count as a real swipe.
+  function classifySwipe(dx, dy) {
+    if (Math.max(Math.abs(dx), Math.abs(dy)) < MIN_SWIPE_DISTANCE) return null;
+    return Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'RIGHT' : 'LEFT') : dy > 0 ? 'DOWN' : 'UP';
+  }
+
   let destroyed = false;
   let rule = null; // { type: 'swipe' | 'dont' | 'opposite', dir }
   let startX = 0;
@@ -44,7 +51,10 @@ function mount(contentEl, onAttempt) {
 
   function nextRound() {
     const dir = randomDirection();
-    const type = ['swipe', 'dont', 'opposite'][Math.floor(Math.random() * 3)];
+    const type =
+      Math.random() * 100 < COMPLEX_RULE_CHANCE
+        ? ['dont', 'opposite'][Math.floor(Math.random() * 2)]
+        : 'swipe';
     rule = { type, dir };
 
     if (type === 'swipe') promptEl.textContent = `SWIPE ${dir}!`;
@@ -87,7 +97,7 @@ function mount(contentEl, onAttempt) {
   };
 }
 
-// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt) => {unmount} }
+// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt, { difficulty }) => {unmount} }
 // See tools/mod-tool/README.md for the full contract this must satisfy.
 export default {
   id: 'swipe',

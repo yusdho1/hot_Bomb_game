@@ -20,12 +20,15 @@ function snapshotMatchState(matchState) {
     bombHolderId: matchState.bombHolderId,
     bombTimer: matchState.bombTimer,
     streakCount: matchState.streakCount,
+    streakTarget: matchState.streakTarget,
+    difficulty: matchState.difficulty,
     globalTimeRemaining: matchState.globalTimeRemaining,
     matchDurationSeconds: matchState.matchDurationSeconds,
     eliminationNotice: matchState.eliminationNotice,
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     zipStain: matchState.zipStain,
+    turnNotice: matchState.turnNotice,
     winCounts: matchState.winCounts,
     points: matchState.points,
     pendingFuseBonus: matchState.pendingFuseBonus,
@@ -41,6 +44,8 @@ export function createLobbyUpdateMessage(matchState) {
     matchDurationSeconds: matchState.matchDurationSeconds,
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+    streakTarget: matchState.streakTarget,
+    difficulty: matchState.difficulty,
     winCounts: matchState.winCounts,
   };
 }
@@ -55,6 +60,8 @@ export function createReturnToLobbyMessage(matchState) {
     matchDurationSeconds: matchState.matchDurationSeconds,
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
+    streakTarget: matchState.streakTarget,
+    difficulty: matchState.difficulty,
     winCounts: matchState.winCounts,
   };
 }
