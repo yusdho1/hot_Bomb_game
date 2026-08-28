@@ -1,8 +1,12 @@
-export const DEFAULT_MATCH_DURATION = 60;
-export const PERSONAL_TIMER_SECONDS = 10;
-export const STREAK_TARGET = 3;
-export const DEFAULT_ZIP_ENABLED = true;
-export const DEFAULT_ZIP_STAIN_SECONDS = 1.5;
+import gameConfig from '../config/game.config.json';
+
+export const DEFAULT_MATCH_DURATION = gameConfig.settings.matchDurationDefault;
+export const PERSONAL_TIMER_SECONDS = gameConfig.settings.personalTimerSeconds;
+export const STREAK_TARGET = gameConfig.settings.streakTarget;
+export const DEFAULT_ZIP_ENABLED = gameConfig.settings.zipEnabledDefault;
+export const DEFAULT_ZIP_STAIN_SECONDS = gameConfig.settings.zipStainSecondsDefault;
+
+const POINTS = gameConfig.settings.points;
 
 // One per player slot (8 max) so no two players in a room ever share a background color.
 export const AVATAR_COLORS = [
@@ -52,6 +56,15 @@ export function createMatchState(
     // playerId -> rounds won this room session. Persists across resetToLobby (Next Round) —
     // only ever grows, never cleared, for as long as the room stays open.
     winCounts: {},
+    // playerId -> spendable Shop points. Reset every round (unlike winCounts) so nobody can
+    // snowball a lead across "Next Round" resets.
+    points: {},
+    // playerId -> banked fuse-bonus seconds, applied and cleared the next time they become holder.
+    pendingFuseBonus: {},
+    // At most one player in the whole match may have a skip-ahead pass queued at a time — a
+    // single nullable playerId rather than a set, which is what keeps selectNextHolder's
+    // consumption logic a one-line addition instead of needing cascade/deadlock handling.
+    pendingSkipPass: null,
   };
   matchState.players.push({
     id: hostId,
@@ -136,14 +149,26 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
 
   for (let offset = 1; offset <= order.length; offset++) {
     const candidate = order[(currentIndex + offset) % order.length];
-    if (candidate.status === 'alive') {
-      matchState.bombHolderId = candidate.id;
-      matchState.bombTimer = PERSONAL_TIMER_SECONDS;
-      matchState.streakCount = 0;
-      matchState.zipStain = null;
-      matchState._zipThrownThisTurn = new Set();
-      return;
+    if (candidate.status !== 'alive') continue;
+
+    // A queued skip-ahead pass consumes itself and the bomb moves straight past them — safe
+    // because this loop only ever runs with 2+ players alive (1-alive already ends the match
+    // elsewhere), so there's always another alive candidate later in the same pass.
+    if (candidate.id === matchState.pendingSkipPass) {
+      matchState.pendingSkipPass = null;
+      continue;
     }
+
+    matchState.bombHolderId = candidate.id;
+    matchState.bombTimer = PERSONAL_TIMER_SECONDS;
+    if (matchState.pendingFuseBonus[candidate.id]) {
+      matchState.bombTimer += matchState.pendingFuseBonus[candidate.id];
+      delete matchState.pendingFuseBonus[candidate.id];
+    }
+    matchState.streakCount = 0;
+    matchState.zipStain = null;
+    matchState._zipThrownThisTurn = new Set();
+    return;
   }
 
   matchState.bombHolderId = null;
@@ -168,6 +193,8 @@ export function resolvePuzzleSuccess(matchState, fromId) {
   if (matchState.phase !== 'active' || fromId !== matchState.bombHolderId) return false;
   matchState.streakCount += 1;
   if (matchState.streakCount >= STREAK_TARGET) {
+    const bonus = Math.round(matchState.bombTimer * POINTS.perSecondRemaining);
+    matchState.points[fromId] = (matchState.points[fromId] || 0) + bonus;
     selectNextHolder(matchState);
   }
   return true;
@@ -181,16 +208,21 @@ export function registerPuzzleMiss(matchState, fromId) {
   return true;
 }
 
-// One alive non-holder "solved" their sabotage minigame. Throws a tomato at the current holder,
-// unless that player already threw one this turn (resets whenever a new holder is assigned) or
-// the feature is off for this match. Returns true if applied.
-export function throwZipStain(matchState, throwerId) {
+// Pure eligibility check for throwing a tomato — shared by the free (Zip-solve) and paid (Shop)
+// throw paths so both stay subject to the exact same rules.
+function canThrowZipStain(matchState, throwerId) {
   if (matchState.phase !== 'active' || !matchState.zipEnabled) return false;
   if (!matchState.bombHolderId || throwerId === matchState.bombHolderId) return false;
   const thrower = matchState.players.find((p) => p.id === throwerId);
   if (!thrower || thrower.status !== 'alive') return false;
   if (matchState._zipThrownThisTurn.has(throwerId)) return false;
+  return true;
+}
 
+// The actual throw, no points awarded — callers decide whether this earns a bonus (only solving
+// the puzzle does; paying for it via the Shop does not, since that would double-dip a player who
+// bought the effect instead of earning it).
+function applyZipThrow(matchState, throwerId) {
   matchState._zipThrownThisTurn.add(throwerId);
   matchState.zipStainSeq += 1;
   matchState.zipStain = {
@@ -198,7 +230,53 @@ export function throwZipStain(matchState, throwerId) {
     throwerId,
     seq: matchState.zipStainSeq,
   };
+}
+
+// One alive non-holder "solved" their sabotage minigame. Throws a tomato at the current holder
+// and awards the solve bonus, unless that player already threw one this turn (resets whenever a
+// new holder is assigned) or the feature is off for this match. Returns true if applied.
+export function throwZipStain(matchState, throwerId) {
+  if (!canThrowZipStain(matchState, throwerId)) return false;
+  applyZipThrow(matchState, throwerId);
+  matchState.points[throwerId] = (matchState.points[throwerId] || 0) + POINTS.zipSolveBonus;
   return true;
+}
+
+// Spends a player's points on one of the three Shop items. Validates affordability and every
+// item-specific precondition BEFORE deducting, so there's never a "deducted but nothing
+// happened" state that would need a refund path. Returns true if applied.
+export function purchaseShopItem(matchState, playerId, item) {
+  if (matchState.phase !== 'active') return false;
+  const player = matchState.players.find((p) => p.id === playerId);
+  if (!player || player.status !== 'alive' || playerId === matchState.bombHolderId) return false;
+
+  const price = POINTS.prices[item];
+  if (price === undefined) return false;
+  const balance = matchState.points[playerId] || 0;
+  if (balance < price) return false;
+
+  if (item === 'fuseTime') {
+    if (matchState.pendingFuseBonus[playerId]) return false;
+    matchState.points[playerId] = balance - price;
+    matchState.pendingFuseBonus[playerId] = POINTS.fuseBonusSeconds;
+    return true;
+  }
+
+  if (item === 'throwTomato') {
+    if (!canThrowZipStain(matchState, playerId)) return false;
+    matchState.points[playerId] = balance - price;
+    applyZipThrow(matchState, playerId); // paid for — no solve bonus on top
+    return true;
+  }
+
+  if (item === 'skipPass') {
+    if (matchState.pendingSkipPass) return false;
+    matchState.points[playerId] = balance - price;
+    matchState.pendingSkipPass = playerId;
+    return true;
+  }
+
+  return false;
 }
 
 // Brings a finished match back to the lobby with the same roster (all revived to 'alive') so the
@@ -216,6 +294,9 @@ export function resetToLobby(matchState) {
   matchState.eliminationNotice = null;
   matchState.zipStain = null;
   matchState._zipThrownThisTurn = new Set();
+  matchState.points = {};
+  matchState.pendingFuseBonus = {};
+  matchState.pendingSkipPass = null;
 }
 
 function eliminatePlayer(matchState, playerId) {

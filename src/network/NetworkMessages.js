@@ -4,6 +4,7 @@ export const MessageType = Object.freeze({
   STATE_UPDATE: 'state_update',
   INPUT_PUZZLE_RESULT: 'input_puzzle_result',
   INPUT_ZIP_SOLVED: 'input_zip_solved',
+  INPUT_SHOP_PURCHASE: 'input_shop_purchase',
   GAME_OVER: 'game_over',
   RETURN_TO_LOBBY: 'return_to_lobby',
 });
@@ -26,6 +27,9 @@ function snapshotMatchState(matchState) {
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     zipStain: matchState.zipStain,
     winCounts: matchState.winCounts,
+    points: matchState.points,
+    pendingFuseBonus: matchState.pendingFuseBonus,
+    pendingSkipPass: matchState.pendingSkipPass,
   };
 }
 
@@ -73,6 +77,11 @@ export function createPuzzleResultMessage(playerId, success) {
 // Client -> Host: sender just solved their background sabotage (Zip) puzzle.
 export function createZipSolvedMessage(playerId) {
   return { type: MessageType.INPUT_ZIP_SOLVED, playerId };
+}
+
+// Client -> Host: sender wants to spend points on one Shop item ('fuseTime' | 'throwTomato' | 'skipPass').
+export function createShopPurchaseMessage(playerId, item) {
+  return { type: MessageType.INPUT_SHOP_PURCHASE, playerId, item };
 }
 
 // Host -> Clients: global timer hit zero, match is over.

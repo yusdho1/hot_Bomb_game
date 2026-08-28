@@ -10,6 +10,7 @@ import { spawnConfetti, spawnExplosionBurst } from './render/Particles.js';
 import { renderAvatar } from './render/AvatarRenderer.js';
 import { mountAvatarCreator } from './render/AvatarCreator.js';
 import { randomAvatarParts, loadSavedAvatarParts, saveAvatarParts } from './render/avatarOptions.js';
+import gameConfig from './config/game.config.json';
 
 const nameInputEl = document.getElementById('name-input');
 const entryEl = document.getElementById('entry');
@@ -33,7 +34,21 @@ const lobbyEl = document.getElementById('lobby');
 const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
+const throwTomatoBtn = document.getElementById('throw-tomato-btn');
 const zipOverlayEl = document.getElementById('zip-overlay');
+const zipCancelBtn = document.getElementById('zip-cancel-btn');
+const pointsBalanceEl = document.getElementById('points-balance');
+const pointsBalanceValueEl = document.getElementById('points-balance-value');
+const shopBtn = document.getElementById('shop-btn');
+const shopOverlayEl = document.getElementById('shop-overlay');
+const shopCancelBtn = document.getElementById('shop-cancel-btn');
+const shopBalanceValueEl = document.getElementById('shop-balance-value');
+const shopFuseSecondsEl = document.getElementById('shop-fuse-seconds');
+const shopBuyBtns = {
+  fuseTime: document.getElementById('shop-buy-fuseTime'),
+  throwTomato: document.getElementById('shop-buy-throwTomato'),
+  skipPass: document.getElementById('shop-buy-skipPass'),
+};
 const gameOverPanelEl = document.getElementById('game-over-panel');
 const gameOverLossImgEl = document.getElementById('game-over-loss-img');
 const gameOverTitleEl = document.getElementById('game-over-title');
@@ -253,10 +268,10 @@ function startGame(matchState) {
     onLocalIsHolder: (isHolder) => {
       if (isHolder) {
         mountPuzzleUI();
-        unmountZipUI();
+        unmountWaitingUI();
       } else {
         unmountPuzzleUI();
-        mountZipUI();
+        mountWaitingUI();
       }
     },
     onSceneReady: (sceneInstance) => {
@@ -273,6 +288,9 @@ function applyMatchState(matchState) {
   if (scene) scene.applyMatchState(matchState);
   applyEliminationNotice(matchState.eliminationNotice);
   checkZipStain(matchState);
+
+  if (!pointsBalanceEl.classList.contains('hidden')) updatePointsBalanceChip(matchState);
+  if (!shopOverlayEl.classList.contains('hidden')) updateShopModal(matchState);
 
   if (puzzleHandle) {
     puzzleHandle.updateTimer(matchState.bombTimer);
@@ -359,19 +377,39 @@ function submitPuzzleResult(success) {
   else if (role === 'client' && client) client.sendPuzzleResult(success);
 }
 
-// --- Zip sabotage minigame (alive non-holders, while waiting for their turn) ---
+// --- Waiting-player actions: Zip sabotage minigame + Shop (alive non-holders only) ---
+// Opt-in: becoming a spectator just reveals the "Throw Tomato" / "Shop" buttons, never a puzzle
+// or modal outright — those only open once the player actually taps in, and can be backed out of.
 
-function mountZipUI() {
-  if (!lastMatchState || lastMatchState.phase !== 'active' || !lastMatchState.zipEnabled) return;
+function mountWaitingUI() {
+  if (!lastMatchState || lastMatchState.phase !== 'active') return;
   const me = lastMatchState.players.find((p) => p.id === localPlayerId);
   if (!me || me.status !== 'alive') return;
   if (lastMatchState.bombHolderId === localPlayerId) return;
 
-  zipOverlayEl.classList.remove('hidden');
-  zipHandle = ZipPuzzle.mount(zipOverlayEl, { onSolved: submitZipSolved });
+  if (lastMatchState.zipEnabled) throwTomatoBtn.classList.remove('hidden');
+  shopBtn.classList.remove('hidden');
+  pointsBalanceEl.classList.remove('hidden');
+  updatePointsBalanceChip(lastMatchState);
 }
 
-function unmountZipUI() {
+function unmountWaitingUI() {
+  throwTomatoBtn.classList.add('hidden');
+  shopBtn.classList.add('hidden');
+  pointsBalanceEl.classList.add('hidden');
+  closeZipPuzzle();
+  closeShopModal();
+}
+
+function openZipPuzzle() {
+  throwTomatoBtn.classList.add('hidden');
+  shopBtn.classList.add('hidden');
+  zipOverlayEl.classList.remove('hidden');
+  zipHandle = ZipPuzzle.mount(zipOverlayEl, { onSolved: handleZipSolved });
+  zipOverlayEl.appendChild(zipCancelBtn);
+}
+
+function closeZipPuzzle() {
   zipOverlayEl.classList.add('hidden');
   if (zipHandle) {
     zipHandle.unmount();
@@ -379,9 +417,70 @@ function unmountZipUI() {
   }
 }
 
-function submitZipSolved() {
+function handleZipSolved() {
   if (role === 'host' && host) host.hostSubmitZipSolved();
   else if (role === 'client' && client) client.sendZipSolved();
+  closeZipPuzzle();
+  // Already thrown this turn, so throwTomatoBtn stays hidden until the next one — but they can
+  // still visit the Shop in the meantime.
+  shopBtn.classList.remove('hidden');
+}
+
+throwTomatoBtn.addEventListener('click', () => openZipPuzzle());
+zipCancelBtn.addEventListener('click', () => {
+  closeZipPuzzle();
+  mountWaitingUI(); // re-checks eligibility and shows the buttons again if still valid
+});
+
+// --- Shop ---
+
+function openShopModal() {
+  throwTomatoBtn.classList.add('hidden');
+  shopBtn.classList.add('hidden');
+  shopOverlayEl.classList.remove('hidden');
+  shopFuseSecondsEl.textContent = gameConfig.settings.points.fuseBonusSeconds;
+  ['fuseTime', 'throwTomato', 'skipPass'].forEach((item) => {
+    document.getElementById(`shop-price-${item}`).textContent = gameConfig.settings.points.prices[item];
+  });
+  if (lastMatchState) updateShopModal(lastMatchState);
+}
+
+function closeShopModal() {
+  shopOverlayEl.classList.add('hidden');
+}
+
+shopBtn.addEventListener('click', () => openShopModal());
+shopCancelBtn.addEventListener('click', () => {
+  closeShopModal();
+  mountWaitingUI();
+});
+
+Object.entries(shopBuyBtns).forEach(([item, btn]) => {
+  btn.addEventListener('click', () => {
+    if (role === 'host' && host) host.hostSubmitShopPurchase(item);
+    else if (role === 'client' && client) client.sendShopPurchase(item);
+  });
+});
+
+function updatePointsBalanceChip(matchState) {
+  pointsBalanceValueEl.textContent = matchState.points?.[localPlayerId] || 0;
+}
+
+// Keeps the open Shop modal's balance + affordability + "already queued" state in sync with
+// every incoming state_update — a no-op cost when the modal is hidden.
+function updateShopModal(matchState) {
+  const balance = matchState.points?.[localPlayerId] || 0;
+  shopBalanceValueEl.textContent = balance;
+
+  const prices = gameConfig.settings.points.prices;
+  const isHolder = matchState.bombHolderId === localPlayerId;
+  const hasFuseBonus = !!matchState.pendingFuseBonus?.[localPlayerId];
+  const hasSkipPending = !!matchState.pendingSkipPass;
+  const canThrow = matchState.zipEnabled && !isHolder && !!matchState.bombHolderId;
+
+  shopBuyBtns.fuseTime.disabled = isHolder || hasFuseBonus || balance < prices.fuseTime;
+  shopBuyBtns.throwTomato.disabled = isHolder || !canThrow || balance < prices.throwTomato;
+  shopBuyBtns.skipPass.disabled = isHolder || hasSkipPending || balance < prices.skipPass;
 }
 
 // Detects a NEW stain event via its seq number (matchState is re-broadcast every tick, so the
@@ -418,7 +517,7 @@ function showTomatoStain(durationSeconds) {
 
 function showGameOver({ winners, loserId, winCounts }) {
   unmountPuzzleUI();
-  unmountZipUI();
+  unmountWaitingUI();
   applyEliminationNotice(null);
   SoundManager.stopGlobalTicking();
   SoundManager.stopPersonalAlarm();

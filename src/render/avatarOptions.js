@@ -1,30 +1,21 @@
-// Plain config, no Phaser — categories map to the layered PNGs in UI/Avatars/. Adding a new
-// category (e.g. hat, beard) later is just another array here; nothing downstream hardcodes
-// the category list.
-export const FACE_OPTIONS = [
-  '/UI/Avatars/Avatar__0007_Face1.png',
-  '/UI/Avatars/Avatar__0008_Face2.png',
-  '/UI/Avatars/Avatar__0007_Face3.png',
-];
+// Plain config, no Phaser — categories map to the layered PNGs in UI/Avatars/. The category list
+// itself now lives in game.config.json (edited via the mod tool, see tools/mod-tool/README.md):
+// adding a new category (e.g. hat, beard) is just another entry there; nothing downstream
+// hardcodes the category list.
+import gameConfig from '../config/game.config.json';
 
-export const EYES_OPTIONS = [
-  '/UI/Avatars/Avatar__0002_Eyes1.png',
-  '/UI/Avatars/Avatar__0001_Eyes2.png',
-  '/UI/Avatars/Avatar__0000_Eyes3.png',
-];
+const CATEGORIES = gameConfig.avatarParts.categories;
 
-export const MOUTH_OPTIONS = [
-  '/UI/Avatars/Avatar__0005_Mouth1.png',
-  '/UI/Avatars/Avatar__0004_Mouth2.png',
-  '/UI/Avatars/Avatar__0003_Mouth3.png',
-];
+function categoryOptions(key) {
+  return CATEGORIES.find((c) => c.key === key)?.options || [];
+}
 
-// { category, options } pairs — the avatar creator's falling-item spawner iterates this.
-export const AVATAR_CATEGORIES = [
-  { key: 'face', options: FACE_OPTIONS },
-  { key: 'eyes', options: EYES_OPTIONS },
-  { key: 'mouth', options: MOUTH_OPTIONS },
-];
+export const FACE_OPTIONS = categoryOptions('face');
+export const EYES_OPTIONS = categoryOptions('eyes');
+export const MOUTH_OPTIONS = categoryOptions('mouth');
+
+// { key, options } pairs — the avatar creator's falling-item spawner iterates this.
+export const AVATAR_CATEGORIES = CATEGORIES.map(({ key, options }) => ({ key, options }));
 
 function randomOf(options) {
   return options[Math.floor(Math.random() * options.length)];

@@ -474,13 +474,92 @@
         transform: translateX(-50%) translateY(0);
       }
       #puzzle-overlay,
-      #zip-overlay {
+      #zip-overlay,
+      #shop-overlay {
         position: absolute;
         inset: 0;
         display: flex;
         align-items: center;
         justify-content: center;
         background: rgba(10, 10, 14, 0.55);
+        z-index: 10;
+      }
+      #points-balance {
+        position: absolute;
+        top: 60px;
+        right: 14px;
+        display: flex;
+        align-items: center;
+        gap: 5px;
+        padding: 5px 10px;
+        border-radius: 14px;
+        background: rgba(10, 10, 14, 0.6);
+        border: 1px solid var(--accent-orange-border);
+        color: #ffdd55;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        z-index: 8;
+      }
+      #points-balance img {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
+      }
+      #waiting-actions-row {
+        position: absolute;
+        left: 50%;
+        bottom: 18px;
+        transform: translateX(-50%);
+        display: flex;
+        gap: 10px;
+        z-index: 8;
+      }
+      #throw-tomato-btn,
+      #shop-btn {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 18px;
+        border-radius: 24px;
+        border: 2px solid var(--accent-orange-border);
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        color: #7a2000;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 14px;
+        cursor: pointer;
+        box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 14px rgba(0, 0, 0, 0.35);
+      }
+      #throw-tomato-btn img,
+      #shop-btn img {
+        width: 22px;
+        height: 22px;
+        object-fit: contain;
+      }
+      #throw-tomato-btn:hover,
+      #shop-btn:hover {
+        filter: brightness(1.08);
+      }
+      #throw-tomato-btn:active,
+      #shop-btn:active {
+        transform: translateY(2px);
+      }
+      #throw-tomato-btn {
+        animation: tomato-btn-pulse 1.6s ease-in-out infinite;
+      }
+      #shop-btn {
+        background: linear-gradient(180deg, #fff3c4 0%, #f4c430 100%);
+        border-color: #7a5a12;
+      }
+      @keyframes tomato-btn-pulse {
+        0%,
+        100% {
+          box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 14px rgba(0, 0, 0, 0.35);
+        }
+        50% {
+          box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 22px rgba(255, 140, 0, 0.7);
+        }
       }
       .tomato-stain {
         position: absolute;
@@ -692,7 +771,9 @@
         text-align: center;
         text-shadow: 1px 1px 0 var(--text-outline);
       }
-      .zip-panel {
+      .zip-panel,
+      .shop-panel {
+        position: relative;
         width: 88%;
         max-width: 300px;
         display: flex;
@@ -716,7 +797,8 @@
          portrait phones, instead of staying pinned to a small desktop-sized card. */
       @media (max-width: 700px) and (orientation: portrait) {
         #puzzle-overlay .puzzle-panel,
-        .zip-panel {
+        .zip-panel,
+        .shop-panel {
           width: 94vw;
           max-width: 420px;
         }
@@ -784,6 +866,83 @@
         font-size: 16px;
         color: #ffdd55;
         text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      .shop-balance {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 15px;
+        color: #ffdd55;
+      }
+      .shop-balance img {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+      }
+      .shop-items {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+      }
+      .shop-item-btn {
+        width: 100%;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 2px solid var(--accent-orange-border);
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        cursor: pointer;
+        box-sizing: border-box;
+        text-align: left;
+      }
+      .shop-item-btn:hover:not(:disabled) {
+        filter: brightness(1.08);
+      }
+      .shop-item-btn:active:not(:disabled) {
+        transform: translateY(1px);
+      }
+      .shop-item-btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .shop-item-icon {
+        font-size: 22px;
+        flex-shrink: 0;
+        width: 28px;
+        text-align: center;
+      }
+      .shop-item-label {
+        flex: 1;
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        color: #7a2000;
+        line-height: 1.3;
+      }
+      .shop-item-label small {
+        font-weight: 600;
+        font-size: 10px;
+        opacity: 0.85;
+      }
+      .shop-item-price {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 13px;
+        color: #3a1400;
+        flex-shrink: 0;
+      }
+      .shop-item-price img {
+        width: 16px;
+        height: 16px;
+        object-fit: contain;
       }
       .stroop-word {
         font-family: var(--font-display);
@@ -1170,7 +1329,63 @@
     <div id="game-container" class="hidden">
       <div id="elimination-toast"></div>
       <div id="puzzle-overlay" class="hidden"></div>
-      <div id="zip-overlay" class="hidden"></div>
+
+      <div id="points-balance" class="hidden">
+        <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+        <span id="points-balance-value">0</span>
+      </div>
+
+      <div id="waiting-actions-row">
+        <button id="throw-tomato-btn" type="button" class="hidden">
+          <img src="/UI/Sprites/Tomato_Stain.png" alt="" />
+          Throw Tomato
+        </button>
+        <button id="shop-btn" type="button" class="hidden">
+          <img src="/UI/Sprites/IconShop.png" alt="" />
+          Shop
+        </button>
+      </div>
+
+      <div id="zip-overlay" class="hidden">
+        <button id="zip-cancel-btn" class="modal-close-btn" title="Cancel"></button>
+      </div>
+
+      <div id="shop-overlay" class="hidden">
+        <div class="shop-panel">
+          <button id="shop-cancel-btn" class="modal-close-btn" title="Close"></button>
+          <div class="modal-title">Shop</div>
+          <div class="shop-balance">
+            <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+            <span id="shop-balance-value">0</span>
+          </div>
+          <div class="shop-items">
+            <button class="shop-item-btn" id="shop-buy-fuseTime" data-item="fuseTime" type="button">
+              <span class="shop-item-icon">⏱️</span>
+              <span class="shop-item-label">+<span id="shop-fuse-seconds"></span>s Fuse Time<br /><small>for your next turn</small></span>
+              <span class="shop-item-price">
+                <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+                <span id="shop-price-fuseTime"></span>
+              </span>
+            </button>
+            <button class="shop-item-btn" id="shop-buy-throwTomato" data-item="throwTomato" type="button">
+              <span class="shop-item-icon">🍅</span>
+              <span class="shop-item-label">Throw Tomato Now</span>
+              <span class="shop-item-price">
+                <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+                <span id="shop-price-throwTomato"></span>
+              </span>
+            </button>
+            <button class="shop-item-btn" id="shop-buy-skipPass" data-item="skipPass" type="button">
+              <span class="shop-item-icon">⏭️</span>
+              <span class="shop-item-label">Skip-Ahead Pass<br /><small>auto-completes your next turn</small></span>
+              <span class="shop-item-price">
+                <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+                <span id="shop-price-skipPass"></span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
       <div id="game-over-panel" class="hidden">
         <img id="game-over-loss-img" class="hidden" src="/UI/blewup.png" alt="You blew up" />
         <div id="game-over-title" class="hidden"></div>

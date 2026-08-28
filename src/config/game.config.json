@@ -1,0 +1,126 @@
+{
+  "settings": {
+    "matchDurationDefault": 60,
+    "matchDurationSteps": [
+      30,
+      60,
+      90,
+      120
+    ],
+    "personalTimerSeconds": 10,
+    "streakTarget": 3,
+    "zipEnabledDefault": true,
+    "zipStainSecondsDefault": 1.5,
+    "zipStainSecondsSteps": [
+      1,
+      1.5,
+      2,
+      2.5,
+      3
+    ],
+    "zipGridSize": 5,
+    "zipCheckpoints": 6,
+    "points": {
+      "perSecondRemaining": 5,
+      "zipSolveBonus": 15,
+      "fuseBonusSeconds": 5,
+      "prices": {
+        "fuseTime": 40,
+        "throwTomato": 25,
+        "skipPass": 80
+      }
+    }
+  },
+  "minigames": [
+    {
+      "id": "stroop",
+      "enabled": true
+    },
+    {
+      "id": "swipe",
+      "enabled": true
+    },
+    {
+      "id": "whackamole",
+      "enabled": true
+    }
+  ],
+  "sounds": {
+    "passBombMusic": {
+      "files": [
+        "/Sounds/pass the bomb 10 sec music.wav"
+      ]
+    },
+    "globalTicking": {
+      "files": [
+        "/Sounds/clock-ticking-down SFX2.mp3"
+      ]
+    },
+    "alarm": {
+      "files": [
+        "/Sounds/Alarm SFX.mp3"
+      ]
+    },
+    "personalAlarm": {
+      "files": [
+        "/Sounds/Alarm SFX.mp3"
+      ]
+    },
+    "bombExplode": {
+      "files": [
+        "/Sounds/bomb explode.wav"
+      ]
+    },
+    "smallSuccess": {
+      "files": [
+        "/Sounds/smallsucsses.mp3"
+      ]
+    },
+    "smallFailed": {
+      "files": [
+        "/Sounds/small failed.mp3"
+      ]
+    },
+    "win": {
+      "files": [
+        "/Sounds/win.wav"
+      ]
+    },
+    "tap": {
+      "files": [
+        "/Sounds/bombsound.mp3"
+      ]
+    }
+  },
+  "avatarParts": {
+    "categories": [
+      {
+        "key": "face",
+        "label": "Face",
+        "options": [
+          "/UI/Avatars/Avatar__0007_Face1.png",
+          "/UI/Avatars/Avatar__0008_Face2.png",
+          "/UI/Avatars/Avatar__0007_Face3.png"
+        ]
+      },
+      {
+        "key": "eyes",
+        "label": "Eyes",
+        "options": [
+          "/UI/Avatars/Avatar__0002_Eyes1.png",
+          "/UI/Avatars/Avatar__0001_Eyes2.png",
+          "/UI/Avatars/Avatar__0000_Eyes3.png"
+        ]
+      },
+      {
+        "key": "mouth",
+        "label": "Mouth",
+        "options": [
+          "/UI/Avatars/Avatar__0005_Mouth1.png",
+          "/UI/Avatars/Avatar__0004_Mouth2.png",
+          "/UI/Avatars/Avatar__0003_Mouth3.png"
+        ]
+      }
+    ]
+  }
+}

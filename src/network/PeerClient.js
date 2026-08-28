@@ -1,5 +1,11 @@
 import Peer from 'peerjs';
-import { MessageType, createPuzzleResultMessage, createZipSolvedMessage, isValidMessage } from './NetworkMessages.js';
+import {
+  MessageType,
+  createPuzzleResultMessage,
+  createZipSolvedMessage,
+  createShopPurchaseMessage,
+  isValidMessage,
+} from './NetworkMessages.js';
 
 // Strictly sends input and renders received state — never mutates matchState locally.
 export class PeerClient {
@@ -54,6 +60,12 @@ export class PeerClient {
   sendZipSolved() {
     if (this.conn && this.conn.open) {
       this.conn.send(createZipSolvedMessage(this.peer.id));
+    }
+  }
+
+  sendShopPurchase(item) {
+    if (this.conn && this.conn.open) {
+      this.conn.send(createShopPurchaseMessage(this.peer.id, item));
     }
   }
 

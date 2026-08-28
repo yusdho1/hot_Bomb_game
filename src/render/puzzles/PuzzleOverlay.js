@@ -1,22 +1,22 @@
-import { StroopPuzzle } from './StroopPuzzle.js';
-import { SwipePuzzle } from './SwipePuzzle.js';
-import { WhackAMolePuzzle } from './WhackAMolePuzzle.js';
+import { REGISTRY } from './registry/index.js';
 import { SoundManager } from '../SoundManager.js';
 import { PERSONAL_TIMER_SECONDS } from '../../core/BombState.js';
+import gameConfig from '../../config/game.config.json';
 
-const PUZZLES = [
-  { titleImg: '/UI/Stroop Title.png', mount: StroopPuzzle.mount },
-  { titleImg: '/UI/Swipe.png', mount: SwipePuzzle.mount },
-  { titleText: 'WHACK-A-MOLE', mount: WhackAMolePuzzle.mount },
-];
+// Which of the registered minigames are actually active is controlled entirely by
+// game.config.json (edited via the mod tool) — this file never needs a per-puzzle edit again.
+const ENABLED_IDS = new Set(gameConfig.minigames.filter((m) => m.enabled).map((m) => m.id));
+const PUZZLES = REGISTRY.filter((p) => ENABLED_IDS.has(p.id));
 
 // Which puzzle this local player got last turn — module-scoped (not exported/reset) since
 // puzzle selection happens independently on each player's own device, never synced by the Host.
-let lastPuzzleIndex = null;
+// Tracked by id (not array index) since the active pool is config-filtered and its composition
+// can change between builds.
+let lastPuzzleId = null;
 
-function pickPuzzleIndex() {
-  const candidates = PUZZLES.map((_, i) => i).filter((i) => i !== lastPuzzleIndex);
-  const pool = candidates.length > 0 ? candidates : PUZZLES.map((_, i) => i);
+function pickPuzzle() {
+  const candidates = PUZZLES.filter((p) => p.id !== lastPuzzleId);
+  const pool = candidates.length > 0 ? candidates : PUZZLES;
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
@@ -27,9 +27,8 @@ function pickPuzzleIndex() {
 export function mountPuzzleOverlay(containerEl, { onAttempt }) {
   containerEl.innerHTML = '';
 
-  const puzzleIndex = pickPuzzleIndex();
-  lastPuzzleIndex = puzzleIndex;
-  const chosen = PUZZLES[puzzleIndex];
+  const chosen = pickPuzzle();
+  lastPuzzleId = chosen.id;
 
   const panel = document.createElement('div');
   panel.className = 'puzzle-panel';

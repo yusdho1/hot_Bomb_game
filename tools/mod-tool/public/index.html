@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Timeout Panic — Mod Tool</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <header>
+      <h1>🛠️ Timeout Panic — Mod Tool</h1>
+      <p class="subtitle">Edits <code>src/config/game.config.json</code> directly. This is a dev tool, not part of the game.</p>
+      <div id="status-banner" class="hidden"></div>
+    </header>
+
+    <nav id="tabs">
+      <button class="tab-btn active" data-tab="settings">Settings</button>
+      <button class="tab-btn" data-tab="minigames">Minigames</button>
+      <button class="tab-btn" data-tab="sounds">Sounds</button>
+      <button class="tab-btn" data-tab="avatars">Avatars</button>
+    </nav>
+
+    <main>
+      <section id="tab-settings" class="tab-panel active">
+        <h2>Match settings</h2>
+        <div id="settings-form" class="form-grid"></div>
+        <button id="settings-save-btn" class="save-btn">Save settings</button>
+      </section>
+
+      <section id="tab-minigames" class="tab-panel">
+        <h2>Holder minigames</h2>
+        <p class="hint">These are the puzzles the bomb holder gets — toggle any off without deleting the file, or scaffold a brand-new one.</p>
+        <ul id="minigame-list" class="item-list"></ul>
+
+        <h3>Add a new minigame</h3>
+        <div class="add-row">
+          <input id="new-minigame-id" placeholder="id (e.g. quickmath)" />
+          <input id="new-minigame-title" placeholder="Banner title (e.g. QUICK MATH)" />
+          <button id="scaffold-btn">Scaffold file</button>
+        </div>
+        <p class="hint">This writes <code>src/render/puzzles/registry/&lt;Id&gt;.js</code> from a template with a
+          TODO-marked <code>mount()</code> — open it and write the actual puzzle logic. See the README for the full
+          contract and a worked example.</p>
+      </section>
+
+      <section id="tab-sounds" class="tab-panel">
+        <h2>Sound effects</h2>
+        <p class="hint">Each cue can have multiple candidate files — one is picked at random each time it plays.</p>
+        <div id="sound-list"></div>
+
+        <h3>Add a variant / new sound file</h3>
+        <div class="add-row">
+          <input id="sound-key" placeholder="cue key (e.g. smallSuccess)" />
+          <input id="sound-file" type="file" accept="audio/*" />
+          <button id="sound-upload-btn">Upload</button>
+        </div>
+        <p class="hint">Uploading to an existing key adds a variant; a new key needs a code call site to ever play
+          (see README) — this just gets the file registered and available.</p>
+      </section>
+
+      <section id="tab-avatars" class="tab-panel">
+        <h2>Avatar parts</h2>
+        <div id="avatar-categories"></div>
+
+        <h3>Add an image to a category</h3>
+        <div class="add-row">
+          <select id="avatar-category-select"></select>
+          <input id="avatar-file" type="file" accept="image/png" />
+          <button id="avatar-upload-btn">Upload</button>
+        </div>
+
+        <h3>Add a new category</h3>
+        <div class="add-row">
+          <input id="new-category-key" placeholder="key (e.g. hat)" />
+          <input id="new-category-label" placeholder="Label (e.g. Hat)" />
+          <button id="add-category-btn">Add category</button>
+        </div>
+      </section>
+    </main>
+
+    <script src="/app.js"></script>
+  </body>
+</html>

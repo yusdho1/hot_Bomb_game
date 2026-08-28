@@ -13,6 +13,7 @@ import {
   resolvePuzzleSuccess,
   registerPuzzleMiss,
   throwZipStain,
+  purchaseShopItem,
   countAlivePlayers,
   endMatch,
   resetToLobby,
@@ -120,6 +121,11 @@ export class PeerHost {
     this._applyZipSolved(this.peer.id);
   }
 
+  // Called when the Host's own local player buys a Shop item.
+  hostSubmitShopPurchase(item) {
+    this._applyShopPurchase(this.peer.id, item);
+  }
+
   // Host-only: reset a finished match back to the lobby with everyone still connected, so the
   // next round can start without anyone reconnecting. Drops anyone who disconnected mid-match
   // (their connection is already gone from this.connections) rather than reviving a ghost.
@@ -139,12 +145,20 @@ export class PeerHost {
       this._applyPuzzleResult(fromPeerId, message.success);
     } else if (message.type === MessageType.INPUT_ZIP_SOLVED && message.playerId === fromPeerId) {
       this._applyZipSolved(fromPeerId);
+    } else if (message.type === MessageType.INPUT_SHOP_PURCHASE && message.playerId === fromPeerId) {
+      this._applyShopPurchase(fromPeerId, message.item);
     }
   }
 
   _applyZipSolved(playerId) {
     if (!this.matchState || this.matchState.phase !== 'active') return;
     const applied = throwZipStain(this.matchState, playerId);
+    if (applied) this._broadcastState();
+  }
+
+  _applyShopPurchase(playerId, item) {
+    if (!this.matchState || this.matchState.phase !== 'active') return;
+    const applied = purchaseShopItem(this.matchState, playerId, item);
     if (applied) this._broadcastState();
   }
 
