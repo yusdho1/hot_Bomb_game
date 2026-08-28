@@ -964,6 +964,38 @@
         border: 3px solid rgba(0, 0, 0, 0.35);
         cursor: pointer;
       }
+      /* Generic "pick one of N" building block for new minigames — a styled, on-brand grid of
+         tap targets so a new puzzle never has to invent its own one-off button styling from
+         scratch. See tools/mod-tool/DESIGN_GUIDELINES.md. Click-only (no drag needed), works
+         identically on mouse and touch with zero extra plumbing. */
+      .puzzle-option-grid {
+        width: 100%;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .puzzle-option-btn {
+        min-height: 56px;
+        padding: 8px 10px;
+        border-radius: 12px;
+        border: 3px solid var(--accent-orange-border);
+        background: linear-gradient(180deg, var(--accent-orange-top) 0%, var(--accent-orange-bottom) 100%);
+        color: #7a2000;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: 15px;
+        text-align: center;
+        cursor: pointer;
+        box-shadow: 0 3px 0 var(--accent-orange-border);
+        transition: transform 0.05s ease;
+      }
+      .puzzle-option-btn:hover {
+        filter: brightness(1.08);
+      }
+      .puzzle-option-btn:active {
+        transform: translateY(2px);
+        box-shadow: 0 1px 0 var(--accent-orange-border);
+      }
       .swipe-zone {
         width: 100%;
         min-height: 140px;

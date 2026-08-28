@@ -1,8 +1,28 @@
+import { readPuzzleSettings } from '../puzzleSettings.js';
+
+// Editable from the mod tool's Minigames tab (per-game settings) without touching this file.
+export const settingsSchema = [
+  { key: 'colorGreen', label: 'Green swatch', type: 'color', default: '#4CD137' },
+  { key: 'colorPurple', label: 'Purple swatch', type: 'color', default: '#9B59B6' },
+  { key: 'colorOrange', label: 'Orange swatch', type: 'color', default: '#FF8C1A' },
+  { key: 'colorBlue', label: 'Blue swatch', type: 'color', default: '#E74C3C' },
+  { key: 'colorYellow', label: 'Yellow swatch', type: 'color', default: '#E74C3C' },
+  { key: 'colorPink', label: 'Pink swatch', type: 'color', default: '#E74C3C' },
+  { key: 'colorRed', label: 'Red swatch', type: 'color', default: '#E74C3C' },
+  { key: 'colorTeal', label: 'Teal swatch', type: 'color', default: '#E74C3C' },
+];
+
+const settings = readPuzzleSettings('stroop', settingsSchema);
+
 const COLORS = [
-  { name: 'GREEN', hex: '#4CD137' },
-  { name: 'PURPLE', hex: '#9B59B6' },
-  { name: 'ORANGE', hex: '#FF8C1A' },
-  { name: 'RED', hex: '#E74C3C' },
+  { name: 'GREEN', hex: settings.colorGreen },
+  { name: 'PURPLE', hex: settings.colorPurple },
+  { name: 'ORANGE', hex: settings.colorOrange },
+  { name: 'Blue', hex: settings.colorBlue },
+  { name: 'Teal', hex: settings.colorTeal },
+  { name: 'YELLOW', hex: settings.colorYellow },
+  { name: 'PINK', hex: settings.colorPink },
+  { name: 'RED', hex: settings.colorRed },
 ];
 
 function randomColor() {

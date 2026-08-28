@@ -1,7 +1,15 @@
+import { readPuzzleSettings } from '../puzzleSettings.js';
+
+export const settingsSchema = [
+  { key: 'minSwipeDistance', label: 'Minimum swipe distance (px)', type: 'number', default: 30 },
+];
+
+const settings = readPuzzleSettings('swipe', settingsSchema);
+
 const DIRECTIONS = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
 const OPPOSITE = { UP: 'DOWN', DOWN: 'UP', LEFT: 'RIGHT', RIGHT: 'LEFT' };
 const ARROW = { UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→' };
-const MIN_SWIPE_DISTANCE = 30;
+const MIN_SWIPE_DISTANCE = settings.minSwipeDistance;
 
 function randomDirection() {
   return DIRECTIONS[Math.floor(Math.random() * DIRECTIONS.length)];

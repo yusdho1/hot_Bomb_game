@@ -5,6 +5,13 @@ tunable settings — without hand-editing the game's source for routine addition
 a completely separate tool from the game itself: it doesn't ship in the game bundle, and it runs
 on its own local server.
 
+**Before writing or editing any minigame's actual gameplay logic, read
+[`DESIGN_GUIDELINES.md`](./DESIGN_GUIDELINES.md).** This isn't optional polish — an earlier
+AI-generated minigame skipped it and shipped using native HTML5 drag-and-drop (broken on touch
+devices) and raw emoji (renders differently per OS). The tool can scaffold the file and wire it
+into rotation for you, but it can't stop a new puzzle from looking and behaving inconsistently
+with everything else if whoever writes the actual logic hasn't seen the conventions.
+
 ## Running it
 
 ```bash
@@ -66,17 +73,32 @@ re-scans the folder as a side effect).
    click **Scaffold file**.
 2. This creates `src/render/puzzles/registry/QuickMath.js` from a template, regenerates
    `index.js` to import it, and adds `{ "id": "quickmath", "enabled": true }` to
-   `game.config.json`'s `minigames` list. At this point it's already live in rotation — but its
-   `mount()` is just a TODO stub, so it'll show a placeholder prompt and never actually resolve an
-   attempt.
-3. Open `QuickMath.js` and write the real puzzle: generate a random question, render answer
-   buttons, call `onAttempt(true/false)` on each click, and pick a new question in `nextRound()`.
-   This part — the actual gameplay logic — is the one thing the tool can't do for you.
+   `game.config.json`'s `minigames` list. At this point it's already live in rotation and
+   **actually runnable** — the template is a working (if trivial) "tap the right option" puzzle,
+   not a blank TODO, so you can confirm it appears in rotation and functions before changing
+   anything.
+3. Open `QuickMath.js` and replace the placeholder content-generation with your real puzzle idea —
+   keep reusing `.puzzle-option-grid`/`.puzzle-option-btn` (or read
+   [`DESIGN_GUIDELINES.md`](./DESIGN_GUIDELINES.md) first if your idea needs a different visual or
+   a drag/swipe gesture). This part — the actual gameplay logic — is the one thing the tool can't
+   do for you.
 4. Test it in the game (`npm run dev`), then `npm run build` + commit as described above.
 
 To remove a minigame: toggle it off in the list (non-destructive, the file stays on disk and can
 be re-enabled anytime) or click **Delete file** to permanently remove the file and its config
 entry.
+
+## Per-game settings
+
+Any minigame can export a `settingsSchema` (see `DESIGN_GUIDELINES.md` for the exact format) —
+the mod tool reads it directly from the file (via a live import, so it always reflects what's
+actually in the code) and renders an editable form for it in the **Minigames** tab, under a
+clearly labeled section for that specific game — so a match-wide numeric setting (Settings tab)
+and a single puzzle's own tunable (e.g. Stroop's four swatch colors, or WhackAMole's grid size and
+mole visibility time) never get mixed together. Saved values live in `game.config.json`'s
+`minigameSettings[id]`, read by the puzzle at module load via `readPuzzleSettings(id, schema)`
+from `src/render/puzzles/puzzleSettings.js`. A puzzle with no `settingsSchema` just doesn't get a
+section — that's the normal case for a puzzle with nothing worth exposing.
 
 ## Sounds
 

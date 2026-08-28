@@ -8,7 +8,10 @@
   <body>
     <header>
       <h1>🛠️ Timeout Panic — Mod Tool</h1>
-      <p class="subtitle">Edits <code>src/config/game.config.json</code> directly. This is a dev tool, not part of the game.</p>
+      <p class="subtitle">
+        Edits <code>src/config/game.config.json</code> directly. This is a dev tool, not part of the game. Read the
+        <a href="/design-guidelines" target="_blank" rel="noopener">Design Guidelines</a> before writing puzzle logic.
+      </p>
       <div id="status-banner" class="hidden"></div>
     </header>
 
@@ -37,9 +40,15 @@
           <input id="new-minigame-title" placeholder="Banner title (e.g. QUICK MATH)" />
           <button id="scaffold-btn">Scaffold file</button>
         </div>
-        <p class="hint">This writes <code>src/render/puzzles/registry/&lt;Id&gt;.js</code> from a template with a
-          TODO-marked <code>mount()</code> — open it and write the actual puzzle logic. See the README for the full
-          contract and a worked example.</p>
+        <p class="hint">This writes <code>src/render/puzzles/registry/&lt;Id&gt;.js</code> from a working example
+          template — open it and replace the placeholder logic with your own idea, following the
+          <a href="/design-guidelines" target="_blank" rel="noopener">Design Guidelines</a>.</p>
+
+        <h3>Per-game settings</h3>
+        <p class="hint">Only minigames that export a <code>settingsSchema</code> show up here — see the Design
+          Guidelines for how to add one to your own puzzle.</p>
+        <div id="minigame-settings"></div>
+        <button id="minigame-settings-save-btn" class="save-btn">Save minigame settings</button>
       </section>
 
       <section id="tab-sounds" class="tab-panel">

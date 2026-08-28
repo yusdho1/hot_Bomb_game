@@ -45,10 +45,29 @@
       "enabled": true
     },
     {
-      "id": "emojimatch",
+      "id": "wordmatch",
       "enabled": true
     }
   ],
+  "minigameSettings": {
+    "stroop": {
+      "colorGreen": "#4cd137",
+      "colorPurple": "#9b59b6",
+      "colorOrange": "#ffa200",
+      "colorRed": "#ec3722",
+      "colorBlue": "#1148ee",
+      "colorYellow": "#e8d721",
+      "colorPink": "#e95ef3",
+      "colorTeal": "#069494"
+    },
+    "swipe": {
+      "minSwipeDistance": 30
+    },
+    "whackamole": {
+      "gridSize": 12,
+      "moleVisibleMs": 1100
+    }
+  },
   "sounds": {
     "passBombMusic": {
       "files": [

@@ -1,5 +1,16 @@
-const GRID_SIZE = 9;
-const MOLE_VISIBLE_MS = 1100;
+import { readPuzzleSettings } from '../puzzleSettings.js';
+
+export const settingsSchema = [
+  { key: 'gridSize', label: 'Number of holes', type: 'number', default: 9 },
+  { key: 'moleVisibleMs', label: 'Mole visible time (ms)', type: 'number', default: 1100 },
+];
+
+const settings = readPuzzleSettings('whackamole', settingsSchema);
+
+// The CSS grid (.mole-grid) is a fixed 3-column layout — any gridSize wraps into extra rows
+// automatically, so this stays visually reasonable without needing matching CSS changes.
+const GRID_SIZE = settings.gridSize;
+const MOLE_VISIBLE_MS = settings.moleVisibleMs;
 
 // One mole per attempt (adapted from the GDD's simultaneous-moles spec to fit the shared
 // "3 attempts in a row" streak model — see the Phase B plan for why).

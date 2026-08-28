@@ -3,7 +3,7 @@
 // a reference); scaffolding/deleting a minigame file or uploading an asset go through their own
 // endpoints since those touch the filesystem, then reload the config from the server afterward.
 
-const state = { config: null, discovered: null };
+const state = { config: null, discovered: null, schemas: null };
 
 const SETTINGS_FIELDS = [
   { path: 'settings.matchDurationDefault', label: 'Match duration default (s)', type: 'number' },
@@ -52,11 +52,13 @@ async function api(method, path, body) {
 }
 
 async function loadConfig() {
-  const { config, discovered } = await api('GET', '/api/config');
+  const { config, discovered, schemas } = await api('GET', '/api/config');
   state.config = config;
   state.discovered = discovered;
+  state.schemas = schemas;
   renderSettings();
   renderMinigames();
+  renderMinigameSettings();
   renderSounds();
   renderAvatars();
 }
@@ -178,6 +180,80 @@ document.getElementById('scaffold-btn').addEventListener('click', async () => {
     document.getElementById('new-minigame-id').value = '';
     document.getElementById('new-minigame-title').value = '';
     await loadConfig();
+  } catch (err) {
+    showStatus(err.message, true);
+  }
+});
+
+// --- per-game settings ---
+
+function minigameSettingsInputId(gameId, key) {
+  return `mgset-${gameId}-${key}`;
+}
+
+function renderMinigameSettings() {
+  const container = document.getElementById('minigame-settings');
+  container.innerHTML = '';
+
+  if (!state.config.minigameSettings) state.config.minigameSettings = {};
+
+  const ids = Object.keys(state.schemas).sort();
+  if (ids.length === 0) {
+    const hint = document.createElement('p');
+    hint.className = 'hint';
+    hint.textContent = 'No minigame currently exports a settingsSchema.';
+    container.appendChild(hint);
+    return;
+  }
+
+  ids.forEach((gameId) => {
+    const schema = state.schemas[gameId];
+    if (!state.config.minigameSettings[gameId]) state.config.minigameSettings[gameId] = {};
+    const saved = state.config.minigameSettings[gameId];
+
+    const block = document.createElement('div');
+    block.className = 'category-block';
+
+    const heading = document.createElement('h4');
+    heading.textContent = gameId;
+    block.appendChild(heading);
+
+    const form = document.createElement('div');
+    form.className = 'form-grid';
+
+    schema.forEach((field) => {
+      const label = document.createElement('label');
+      label.textContent = field.label || field.key;
+      label.htmlFor = minigameSettingsInputId(gameId, field.key);
+
+      const input = document.createElement('input');
+      input.id = minigameSettingsInputId(gameId, field.key);
+      input.type = field.type === 'number' ? 'number' : field.type === 'color' ? 'color' : 'text';
+      if (field.type === 'number') input.step = 'any';
+      const current = saved[field.key] !== undefined ? saved[field.key] : field.default;
+      input.value = current !== undefined ? current : '';
+
+      form.appendChild(label);
+      form.appendChild(input);
+    });
+
+    block.appendChild(form);
+    container.appendChild(block);
+  });
+}
+
+document.getElementById('minigame-settings-save-btn').addEventListener('click', async () => {
+  Object.keys(state.schemas).forEach((gameId) => {
+    const schema = state.schemas[gameId];
+    if (!state.config.minigameSettings[gameId]) state.config.minigameSettings[gameId] = {};
+    const saved = state.config.minigameSettings[gameId];
+    schema.forEach((field) => {
+      const input = document.getElementById(minigameSettingsInputId(gameId, field.key));
+      saved[field.key] = field.type === 'number' ? Number(input.value) : input.value;
+    });
+  });
+  try {
+    await saveConfig('Minigame settings saved.');
   } catch (err) {
     showStatus(err.message, true);
   }

@@ -18,6 +18,7 @@ const SOUNDS_DIR = path.join(PROJECT_ROOT, 'public', 'Sounds');
 const AVATARS_DIR = path.join(PROJECT_ROOT, 'public', 'UI', 'Avatars');
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'minigame.template.js');
 const PUBLIC_DIR = path.join(__dirname, 'public');
+const DESIGN_GUIDELINES_PATH = path.join(__dirname, 'DESIGN_GUIDELINES.md');
 
 const MIME = {
   '.html': 'text/html; charset=utf-8',
@@ -59,6 +60,43 @@ function scanDir(dir, extFilter) {
 
 function pascalCase(id) {
   return id.charAt(0).toUpperCase() + id.slice(1);
+}
+
+// Text-based extraction, not `import()` — a dynamic import of a registry file would transitively
+// hit its `import gameConfig from '.../game.config.json'`, which Vite resolves natively but
+// Node's own ESM loader refuses without an import-attribute clause. Regex + Function() over just
+// the isolated array literal sidesteps that entirely, needs no cache-busting, and never executes
+// any of the puzzle's actual game logic — just reads its declared schema/id as data.
+function extractSettingsSchema(fileContent) {
+  const match = fileContent.match(/export\s+const\s+settingsSchema\s*=\s*(\[[\s\S]*?\])\s*;/);
+  if (!match) return [];
+  try {
+    // eslint-disable-next-line no-new-func
+    return new Function(`return (${match[1]});`)();
+  } catch {
+    return [];
+  }
+}
+
+function extractDefaultId(fileContent) {
+  const match = fileContent.match(/id\s*:\s*['"]([a-zA-Z0-9_-]+)['"]/);
+  return match ? match[1] : null;
+}
+
+// Maps every file actually present in REGISTRY_DIR to its declared id + schema by reading its
+// content — deliberately not by guessing a filename from the id via pascalCase(), since that only
+// works for scaffold-generated files. Hand-named files (WhackAMole.js, WordMatch.js, ...) don't
+// follow that pattern, and there's no way to reconstruct their exact capitalization from a
+// lowercase id string alone. This is also what makes "delete file" correct for any file
+// regardless of how it was named.
+function scanRegistryModules() {
+  const files = scanDir(REGISTRY_DIR, /\.js$/).filter((f) => f !== 'index.js');
+  return files
+    .map((f) => {
+      const content = fs.readFileSync(path.join(REGISTRY_DIR, f), 'utf8');
+      return { file: f, id: extractDefaultId(content), schema: extractSettingsSchema(content) };
+    })
+    .filter((m) => m.id);
 }
 
 // Regenerates the registry barrel from whatever .js files actually exist in REGISTRY_DIR (not
@@ -104,9 +142,10 @@ function removeMinigame(id, deleteFile) {
   if (!entry) throw new Error(`Unknown minigame id "${id}"`);
 
   if (deleteFile) {
-    const filePath = path.join(REGISTRY_DIR, `${pascalCase(id)}.js`);
-    if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+    const found = scanRegistryModules().find((m) => m.id === id);
+    if (found) fs.unlinkSync(path.join(REGISTRY_DIR, found.file));
     config.minigames = config.minigames.filter((m) => m.id !== id);
+    if (config.minigameSettings) delete config.minigameSettings[id];
     regenerateRegistryIndex();
   } else {
     entry.enabled = false;
@@ -180,10 +219,17 @@ const server = http.createServer(async (req, res) => {
   try {
     if (req.method === 'GET' && pathname === '/api/config') {
       const config = readConfig();
+      if (!config.minigameSettings) config.minigameSettings = {};
+      const modules = scanRegistryModules();
+      const schemas = {};
+      modules.forEach((m) => {
+        if (m.schema.length > 0) schemas[m.id] = m.schema;
+      });
       sendJson(res, 200, {
         config,
+        schemas,
         discovered: {
-          minigameFiles: scanDir(REGISTRY_DIR, /\.js$/).filter((f) => f !== 'index.js'),
+          minigameFiles: modules.map((m) => m.file),
           soundFiles: scanDir(SOUNDS_DIR, null),
           avatarFiles: scanDir(AVATARS_DIR, /\.png$/),
         },
@@ -255,6 +301,13 @@ const server = http.createServer(async (req, res) => {
       config.avatarParts.categories.push({ key, label: label || key, options: [] });
       writeConfig(config);
       sendJson(res, 200, { ok: true });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/design-guidelines') {
+      const md = fs.readFileSync(DESIGN_GUIDELINES_PATH, 'utf8');
+      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
+      res.end(md);
       return;
     }
 
