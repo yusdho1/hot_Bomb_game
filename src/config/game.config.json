@@ -43,6 +43,10 @@
     {
       "id": "whackamole",
       "enabled": true
+    },
+    {
+      "id": "emojimatch",
+      "enabled": true
     }
   ],
   "sounds": {
@@ -120,6 +124,11 @@
           "/UI/Avatars/Avatar__0004_Mouth2.png",
           "/UI/Avatars/Avatar__0003_Mouth3.png"
         ]
+      },
+      {
+        "key": "hair",
+        "label": "Hair",
+        "options": []
       }
     ]
   }
