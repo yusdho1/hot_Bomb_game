@@ -118,6 +118,17 @@ export class PeerHost {
     if (conn) conn.close();
   }
 
+  // Host-only: leave the room entirely (the "Leave Room" button) — stops the tick loop, closes
+  // every client connection (each side sees its own conn.on('close'), same as any other
+  // disconnect), and tears down the underlying PeerJS peer so the room stops existing on the
+  // signaling server instead of being left as an orphaned, unreachable room.
+  destroy() {
+    this._stopLoop();
+    this.connections.forEach((conn) => conn.close());
+    this.connections.clear();
+    this.peer.destroy();
+  }
+
   // Host-only: begin the match.
   beginMatch() {
     if (!this.matchState || this.matchState.phase !== 'lobby') return;

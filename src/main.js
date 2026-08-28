@@ -17,6 +17,7 @@ const entryEl = document.getElementById('entry');
 const roomEl = document.getElementById('room');
 const roomCodeTextEl = document.getElementById('room-code-text');
 const roomCodeCopyBtn = document.getElementById('room-code-copy-btn');
+const leaveRoomBtn = document.getElementById('leave-room-btn');
 const playerListEl = document.getElementById('player-list');
 const hostControlsEl = document.getElementById('host-controls');
 const durationMinusBtn = document.getElementById('duration-minus-btn');
@@ -904,6 +905,21 @@ roomCodeCopyBtn.addEventListener('click', async () => {
     roomCodeCopyBtn.textContent = '📋';
     roomCodeCopyBtn.classList.remove('copied');
   }, 1200);
+});
+
+// --- Leave room ---
+
+leaveRoomBtn.addEventListener('click', () => {
+  if (role === 'host' && host) {
+    host.destroy();
+  } else if (role === 'client' && client) {
+    // Clear the callback first — disconnect() closes the connection, which would otherwise also
+    // fire onDisconnected and stomp the clean "Left the room." message below with the generic
+    // unexpected-drop one.
+    client.onDisconnected = null;
+    client.disconnect();
+  }
+  resetToEntry('Left the room.');
 });
 
 // --- Join popup ---

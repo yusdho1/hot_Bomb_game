@@ -95,11 +95,15 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   });
 
   function baseCellStyle(el) {
-    el.style.fontSize = 'clamp(20px, 5vh, 32px)';
+    // cqmin (container query units, scoped to #game-container) instead of vh — vh only knows the
+    // raw viewport and has no idea how big the puzzle panel itself actually ended up on a big
+    // desktop window, so cards would stay capped at a small-screen ceiling even once the panel
+    // around them had grown much larger.
+    el.style.fontSize = 'clamp(20px, 6cqmin, 52px)';
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
-    el.style.height = 'clamp(36px, 8vh, 60px)';
+    el.style.height = 'clamp(36px, 10cqmin, 96px)';
     el.style.borderRadius = '12px';
   }
 

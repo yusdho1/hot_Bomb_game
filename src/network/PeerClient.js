@@ -69,6 +69,14 @@ export class PeerClient {
     }
   }
 
+  // Leave the room entirely (the "Leave Room" button) — closes the connection to the Host (who
+  // sees it as a normal disconnect, same as a dropped connection) and tears down the underlying
+  // PeerJS peer.
+  disconnect() {
+    if (this.conn) this.conn.close();
+    this.peer.destroy();
+  }
+
   _handleHostMessage(message) {
     if (!isValidMessage(message)) return;
 
@@ -84,7 +92,13 @@ export class PeerClient {
         break;
       case MessageType.GAME_OVER:
         if (this.onGameOver)
-          this.onGameOver({ winners: message.winners, loserId: message.loserId, winCounts: message.winCounts });
+          this.onGameOver({
+            winners: message.winners,
+            loserId: message.loserId,
+            winCounts: message.winCounts,
+            points: message.points,
+            tomatoesThrown: message.tomatoesThrown,
+          });
         break;
       case MessageType.RETURN_TO_LOBBY:
         if (this.onReturnToLobby) this.onReturnToLobby(message);

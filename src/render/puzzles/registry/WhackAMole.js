@@ -14,9 +14,11 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   const COLS = 3;
   const ROWS = Math.ceil(GRID_SIZE / COLS);
   const GAP_PX = 8;
-  const PANEL_GAP_PX = 10; // must match .puzzle-panel's own `gap` in index.html
   const MIN_CELL_PX = 26;
-  const MAX_CELL_PX = 72;
+  // Raised well past the old small-screen-tuned ceiling — the width/height budget below is
+  // already real DOM measurement of the actual panel (which itself now scales up on a big
+  // desktop window), so cells can keep growing to fill it instead of hitting an arbitrary cap.
+  const MAX_CELL_PX = 140;
 
   let destroyed = false;
   let resolved = false;
@@ -27,23 +29,22 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   gridEl.className = 'mole-grid';
 
   // Real-geometry sizing, same approach ZipPuzzle.js already uses for its own grid: read the
-  // panel's actual remaining height (its other children — banner, fuse bar, dots, footer logo —
-  // are already in the DOM by the time mount() runs, since PuzzleOverlay builds them first) and
-  // the content area's real width, then size cells off whichever of width-per-column or
-  // height-per-row is smaller. This is what actually guarantees the grid fits at any gridSize
-  // (difficulty presets range 6-12+ holes) without ever needing .puzzle-panel's scrollbar
-  // fallback — a fixed aspect-ratio or viewport-relative guess can't account for how much room
-  // the OTHER chrome around the grid is actually taking on a given device.
-  const panelEl = contentEl.closest('.puzzle-panel');
+  // content area's real width, and a height budget, then size cells off whichever of
+  // width-per-column or height-per-row is smaller. This is what actually guarantees the grid fits
+  // at any gridSize (difficulty presets range 6-12+ holes) without ever needing .puzzle-panel's
+  // scrollbar fallback — a fixed aspect-ratio or viewport-relative guess can't account for how
+  // much room the OTHER chrome around the grid is actually taking on a given device.
+  //
+  // The height budget is measured off #game-container (whose size is fully determined by CSS —
+  // viewport/aspect-ratio only, never by its own content) rather than .puzzle-panel's own
+  // clientHeight — .puzzle-panel is an auto-height flex column that only grows to fit whatever
+  // its children need, so measuring *it* is circular: a small grid keeps the panel small, which
+  // then keeps computing a small grid. Anchoring to the container sidesteps that entirely and is
+  // what lets the grid actually keep growing on a bigger desktop window instead of staying capped
+  // at whatever size it happened to start at.
+  const containerEl = contentEl.closest('#game-container');
   const containerWidth = contentEl.clientWidth || 270;
-  let availableHeight = ROWS * 60;
-  if (panelEl) {
-    const siblingsHeight = Array.from(panelEl.children)
-      .filter((c) => c !== contentEl)
-      .reduce((sum, c) => sum + c.getBoundingClientRect().height, 0);
-    const gapCount = panelEl.children.length - 1;
-    availableHeight = panelEl.clientHeight - siblingsHeight - gapCount * PANEL_GAP_PX;
-  }
+  const availableHeight = containerEl ? containerEl.getBoundingClientRect().height * 0.4 : ROWS * 60;
   const widthCell = (containerWidth - GAP_PX * (COLS - 1)) / COLS;
   const heightCell = (availableHeight - GAP_PX * (ROWS - 1)) / ROWS;
   const cellPx = Math.max(MIN_CELL_PX, Math.min(MAX_CELL_PX, widthCell, heightCell));
