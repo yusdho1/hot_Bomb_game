@@ -31,6 +31,7 @@ function snapshotMatchState(matchState) {
     turnNotice: matchState.turnNotice,
     winCounts: matchState.winCounts,
     points: matchState.points,
+    tomatoesThrown: matchState.tomatoesThrown,
     pendingFuseBonus: matchState.pendingFuseBonus,
     pendingSkipPass: matchState.pendingSkipPass,
   };
@@ -91,9 +92,11 @@ export function createShopPurchaseMessage(playerId, item) {
   return { type: MessageType.INPUT_SHOP_PURCHASE, playerId, item };
 }
 
-// Host -> Clients: global timer hit zero, match is over.
-export function createGameOverMessage(winners, loserId, winCounts) {
-  return { type: MessageType.GAME_OVER, winners, loserId, winCounts };
+// Host -> Clients: global timer hit zero, match is over. points/tomatoesThrown are this round's
+// final totals (not yet reset — that happens on the next "Next Round"), used for the game-over
+// stats screen.
+export function createGameOverMessage(winners, loserId, winCounts, points, tomatoesThrown) {
+  return { type: MessageType.GAME_OVER, winners, loserId, winCounts, points, tomatoesThrown };
 }
 
 export function isValidMessage(message) {

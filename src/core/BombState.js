@@ -73,6 +73,9 @@ export function createMatchState(
     // playerId -> spendable Shop points. Reset every round (unlike winCounts) so nobody can
     // snowball a lead across "Next Round" resets.
     points: {},
+    // playerId -> tomatoes thrown this round (free Zip-solve + paid Shop throws). Reset every
+    // round like points — feeds the end-of-match stats screen, not a session-long tally.
+    tomatoesThrown: {},
     // playerId -> banked fuse-bonus seconds, applied and cleared the next time they become holder.
     pendingFuseBonus: {},
     // At most one player in the whole match may have a skip-ahead pass queued at a time — a
@@ -267,6 +270,10 @@ function applyZipThrow(matchState, throwerId) {
     throwerId,
     seq: matchState.zipStainSeq,
   };
+  // Cumulative match-long count (unlike _zipThrownThisTurn, which resets every turn) — feeds the
+  // end-of-match "most tomatoes thrown" stat. Both the free (Zip-solve) and paid (Shop) throw
+  // paths go through here, so both count toward it.
+  matchState.tomatoesThrown[throwerId] = (matchState.tomatoesThrown[throwerId] || 0) + 1;
 }
 
 // One alive non-holder "solved" their sabotage minigame. Throws a tomato at the current holder
@@ -332,6 +339,7 @@ export function resetToLobby(matchState) {
   matchState.zipStain = null;
   matchState._zipThrownThisTurn = new Set();
   matchState.points = {};
+  matchState.tomatoesThrown = {};
   matchState.pendingFuseBonus = {};
   matchState.pendingSkipPass = null;
   matchState.turnNotice = null;

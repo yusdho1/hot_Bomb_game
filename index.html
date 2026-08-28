@@ -507,8 +507,11 @@
       }
       #game-container {
         position: relative;
-        width: 100vw;
-        max-width: 800px;
+        /* Fills as much of the window as it can without overflowing either dimension: whichever
+           is smaller of 96% of the width, or the width that keeps the 8:5 card at 90% of the
+           height. Desktop used to stay pinned to a small 800px box regardless of window size —
+           this makes it scale up the same way phones already get the full viewport. */
+        width: min(96vw, calc(90vh * 8 / 5));
         aspect-ratio: 800 / 500;
         line-height: 0;
         border-radius: 12px;
@@ -1193,6 +1196,19 @@
         border-radius: 12px;
         padding: 4px 10px;
       }
+      #game-over-stats {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        max-width: 90%;
+      }
+      .match-stat-row {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        color: #cfc9f0;
+      }
       @keyframes shake-small {
         0%,
         100% {
@@ -1413,6 +1429,19 @@
         object-fit: contain;
         pointer-events: none;
       }
+      .falling-item-empty {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        border: 2px dashed rgba(255, 255, 255, 0.5);
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 9px;
+        color: rgba(255, 255, 255, 0.75);
+        text-align: center;
+        box-sizing: border-box;
+      }
       .catch-basket {
         position: absolute;
         bottom: 8px;
@@ -1588,6 +1617,7 @@
         <div id="game-over-title" class="hidden"></div>
         <img id="game-over-shield-img" class="hidden" src="/UI/Sprites/Sheild.png" alt="" />
         <div id="game-over-wins" class="hidden"></div>
+        <div id="game-over-stats" class="hidden"></div>
         <button id="play-again-btn" class="btn-primary hidden">Next Round</button>
         <div id="game-over-waiting" class="hidden">Waiting for host to start the next round...</div>
       </div>

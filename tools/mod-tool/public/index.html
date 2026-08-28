@@ -20,6 +20,7 @@
       <button class="tab-btn" data-tab="minigames">Minigames</button>
       <button class="tab-btn" data-tab="sounds">Sounds</button>
       <button class="tab-btn" data-tab="avatars">Avatars</button>
+      <button class="tab-btn" data-tab="preview">Preview</button>
     </nav>
 
     <main>
@@ -82,6 +83,31 @@
           <input id="new-category-key" placeholder="key (e.g. hat)" />
           <input id="new-category-label" placeholder="Label (e.g. Hat)" />
           <button id="add-category-btn">Add category</button>
+        </div>
+      </section>
+
+      <section id="tab-preview" class="tab-panel">
+        <h2>Live preview</h2>
+        <p class="hint">Shows the actual running game at two sizes — requires <code>npm run dev</code> to already
+          be running on its default port (5173). Config edits need a page reload in the game to take effect (same
+          as any other config change); use each frame's own Reload button after saving.</p>
+        <div id="preview-frames">
+          <div class="preview-col">
+            <div class="preview-col-header">
+              <span>Desktop</span>
+              <button type="button" class="preview-reload-btn" data-target="preview-frame-desktop">Reload</button>
+            </div>
+            <iframe id="preview-frame-desktop" class="preview-frame preview-frame-desktop" src="http://localhost:5173"></iframe>
+          </div>
+          <div class="preview-col">
+            <div class="preview-col-header">
+              <span>Phone</span>
+              <button type="button" class="preview-reload-btn" data-target="preview-frame-phone">Reload</button>
+            </div>
+            <div class="preview-phone-frame">
+              <iframe id="preview-frame-phone" class="preview-frame preview-frame-phone" src="http://localhost:5173"></iframe>
+            </div>
+          </div>
         </div>
       </section>
     </main>

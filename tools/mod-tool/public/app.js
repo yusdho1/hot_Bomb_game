@@ -256,10 +256,13 @@ function renderMinigameSettings() {
     const saved = state.config.minigameSettings[gameId];
     if (!saved.difficultyPresets) saved.difficultyPresets = {};
 
-    const block = document.createElement('div');
+    // Collapsed by default (native <details>, no custom JS state needed) — with every game's
+    // full settings *and* all three difficulty presets always expanded, this section was a very
+    // long flat scroll. One folder per game, one nested folder per difficulty level.
+    const block = document.createElement('details');
     block.className = 'category-block';
 
-    const heading = document.createElement('h4');
+    const heading = document.createElement('summary');
     heading.textContent = gameId;
     block.appendChild(heading);
 
@@ -279,21 +282,26 @@ function renderMinigameSettings() {
         if (!saved.difficultyPresets[level]) saved.difficultyPresets[level] = {};
         const preset = saved.difficultyPresets[level];
 
-        const subHeading = document.createElement('h5');
+        const levelDetails = document.createElement('details');
+        levelDetails.className = 'difficulty-block';
+
+        const subHeading = document.createElement('summary');
         subHeading.className = 'difficulty-subheading';
         subHeading.textContent = levelLabel;
-        block.appendChild(subHeading);
+        levelDetails.appendChild(subHeading);
 
         const hint = document.createElement('p');
         hint.className = 'hint';
         hint.textContent = 'Leave a field blank to inherit the base value above.';
-        block.appendChild(hint);
+        levelDetails.appendChild(hint);
 
         const presetForm = buildSettingsForm(tunableSchema, {
           id: (field) => minigameDifficultyInputId(gameId, level, field.key),
           value: (field) => preset[field.key],
         });
-        block.appendChild(presetForm);
+        levelDetails.appendChild(presetForm);
+
+        block.appendChild(levelDetails);
       });
     }
 
@@ -420,14 +428,24 @@ function renderAvatars() {
     cat.options.forEach((optionPath) => {
       const thumb = document.createElement('div');
       thumb.className = 'thumb';
-      thumb.title = `Click to remove ${optionPath}`;
 
-      const img = document.createElement('img');
-      img.src = optionPath;
-      thumb.appendChild(img);
+      // null represents "no image for this layer" (e.g. no hair) — a real, player-selectable
+      // choice, not a broken entry, so it gets its own plain-CSS tile instead of an <img> (which
+      // would 404 trying to load a null src).
+      if (optionPath === null) {
+        thumb.classList.add('thumb-empty');
+        thumb.textContent = 'None';
+        thumb.title = 'Click to remove the "None" option';
+      } else {
+        const img = document.createElement('img');
+        img.src = optionPath;
+        thumb.appendChild(img);
+        thumb.title = `Click to remove ${optionPath}`;
+      }
 
       thumb.addEventListener('click', async () => {
-        if (!confirm(`Remove ${optionPath} from "${cat.key}"? (leaves the file on disk)`)) return;
+        const label = optionPath === null ? '"None"' : optionPath;
+        if (!confirm(`Remove ${label} from "${cat.key}"?${optionPath === null ? '' : ' (leaves the file on disk)'}`)) return;
         cat.options = cat.options.filter((o) => o !== optionPath);
         try {
           await saveConfig('Removed avatar option.');
@@ -440,6 +458,28 @@ function renderAvatars() {
       grid.appendChild(thumb);
     });
     block.appendChild(grid);
+
+    const noneRow = document.createElement('label');
+    noneRow.className = 'avatar-none-toggle';
+    const noneCheckbox = document.createElement('input');
+    noneCheckbox.type = 'checkbox';
+    noneCheckbox.checked = cat.options.includes(null);
+    noneCheckbox.addEventListener('change', async () => {
+      if (noneCheckbox.checked) {
+        if (!cat.options.includes(null)) cat.options.push(null);
+      } else {
+        cat.options = cat.options.filter((o) => o !== null);
+      }
+      try {
+        await saveConfig(`"${cat.key}" None option ${noneCheckbox.checked ? 'enabled' : 'disabled'}.`);
+        renderAvatars();
+      } catch (err) {
+        showStatus(err.message, true);
+      }
+    });
+    noneRow.append(noneCheckbox, ` Allow a "None" option (no ${cat.label.toLowerCase()})`);
+    block.appendChild(noneRow);
+
     container.appendChild(block);
 
     const opt = document.createElement('option');
@@ -494,5 +534,17 @@ function fileToBase64(file) {
     reader.readAsDataURL(file);
   });
 }
+
+// --- preview ---
+
+// Config edits need a fresh page load in the game to take effect (same as any other config
+// change — see README) — re-pointing an iframe's src at itself is the simplest reliable reload,
+// simpler than trying to call .contentWindow.location.reload() across the frame boundary.
+document.querySelectorAll('.preview-reload-btn').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const frame = document.getElementById(btn.dataset.target);
+    if (frame) frame.src = frame.src;
+  });
+});
 
 loadConfig().catch((err) => showStatus(err.message, true));

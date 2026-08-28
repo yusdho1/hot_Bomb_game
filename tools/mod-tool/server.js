@@ -183,7 +183,11 @@ const GAME_PUBLIC_DIR = path.join(PROJECT_ROOT, 'public');
 // (/UI/Avatars/..., /Sounds/...) resolve as-is for thumbnail/preview purposes in the tool UI,
 // without needing any path rewriting in app.js.
 function serveStatic(req, res, pathname) {
-  const rel = pathname === '/' ? '/index.html' : pathname;
+  // pathname comes from URL.pathname, which stays percent-encoded (e.g. a space becomes %20) —
+  // decode it before hitting the filesystem, or any asset filename containing a space (or other
+  // encoded character) 404s even though the file is right there.
+  const decodedPathname = decodeURIComponent(pathname);
+  const rel = decodedPathname === '/' ? '/index.html' : decodedPathname;
   const toolPath = path.join(PUBLIC_DIR, rel);
   const gamePath = path.join(GAME_PUBLIC_DIR, rel);
   if (!toolPath.startsWith(PUBLIC_DIR) || !gamePath.startsWith(GAME_PUBLIC_DIR)) {

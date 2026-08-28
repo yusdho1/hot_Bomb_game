@@ -224,14 +224,34 @@ button.save-btn,
   color: var(--text-dim);
 }
 
-.difficulty-subheading {
-  margin: 14px 0 2px;
+/* Per-game minigame-settings blocks are <details> (collapsed by default) rather than the plain
+   always-expanded <div> the Sounds/Avatars tabs still use — .category-block h4 above stays as-is
+   for those; this targets the <summary> heading specifically. */
+.category-block > summary {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text);
+  cursor: pointer;
+  list-style-position: outside;
+}
+.category-block[open] > summary {
+  margin-bottom: 10px;
+}
+
+.difficulty-block {
+  margin: 10px 0 0;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+}
+
+.difficulty-subheading {
+  margin: 0 0 2px;
   font-size: 12px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--text-dim);
+  cursor: pointer;
 }
 
 .thumb-grid {
@@ -254,4 +274,86 @@ button.save-btn,
   width: 100%;
   height: 100%;
   object-fit: contain;
+}
+
+.thumb-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  font-size: 10px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.avatar-none-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+#preview-frames {
+  display: flex;
+  gap: 24px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+}
+
+.preview-col {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.preview-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-dim);
+}
+
+.preview-reload-btn {
+  padding: 4px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 12px;
+}
+.preview-reload-btn:hover {
+  border-color: var(--accent);
+}
+
+.preview-frame {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: #000;
+}
+
+.preview-frame-desktop {
+  width: 800px;
+  height: 500px;
+}
+
+/* A plain outer border standing in for a phone bezel — the iframe inside is sized to a common
+   phone viewport rather than trying to render an actual device chrome illustration. */
+.preview-phone-frame {
+  width: 395px;
+  padding: 10px;
+  border-radius: 28px;
+  border: 3px solid var(--border);
+  background: var(--panel);
+}
+
+.preview-frame-phone {
+  width: 375px;
+  height: 700px;
+  border-radius: 18px;
 }

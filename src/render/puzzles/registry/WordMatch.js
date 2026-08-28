@@ -1,25 +1,33 @@
-// 20 paired word/concept pairs (replacing raw Unicode emojis for cross-platform visual consistency)
+import { readPuzzleSettings } from '../puzzleSettings.js';
+
+// 20 paired emoji concepts. Deliberately real emoji (not text) — a project-owner-approved,
+// narrow exception to the "no raw emoji" rule documented in ../../../tools/mod-tool/
+// DESIGN_GUIDELINES.md (see the note there for why this one puzzle is the exception).
 const CONCEPT_PAIRS = [
-  { a: 'BOMB', b: 'BOOM' },
-  { a: 'POLICE', b: 'COP CAR' },
-  { a: 'PREGNANT', b: 'BABY' },
-  { a: 'RAIN', b: 'UMBRELLA' },
-  { a: 'FIRE', b: 'EXTINGUISHER' },
-  { a: 'PIZZA', b: 'SODA' },
-  { a: 'BEE', b: 'HONEY' },
-  { a: 'ROCKET', b: 'MOON' },
-  { a: 'ARTIST', b: 'BRUSH' },
-  { a: 'KEY', b: 'LOCK' },
-  { a: 'FISHING', b: 'FISH' },
-  { a: 'BOW', b: 'TARGET' },
-  { a: 'GHOST', b: 'CASTLE' },
-  { a: 'POPCORN', b: 'MOVIE' },
-  { a: 'SPIDER', b: 'WEB' },
-  { a: 'HAMMER', b: 'WOOD' },
-  { a: 'SOCCER', b: 'GOAL' },
-  { a: 'KING', b: 'CROWN' },
-  { a: 'CAKE', b: 'CANDLE' },
-  { a: 'CAR', b: 'GAS PUMP' },
+  { a: '\u{1F4A3}', b: '\u{1F4A5}' }, // bomb / boom
+  { a: '\u{1F6A8}', b: '\u{1F694}' }, // siren / police car
+  { a: '\u{1F930}', b: '\u{1F476}' }, // pregnant / baby
+  { a: '\u{1F327}\u{FE0F}', b: '\u{2602}\u{FE0F}' }, // rain / umbrella
+  { a: '\u{1F525}', b: '\u{1F9EF}' }, // fire / extinguisher
+  { a: '\u{1F355}', b: '\u{1F964}' }, // pizza / soda
+  { a: '\u{1F41D}', b: '\u{1F36F}' }, // bee / honey
+  { a: '\u{1F680}', b: '\u{1F319}' }, // rocket / moon
+  { a: '\u{1F3A8}', b: '\u{1F58C}\u{FE0F}' }, // artist palette / brush
+  { a: '\u{1F511}', b: '\u{1F512}' }, // key / lock
+  { a: '\u{1F3A3}', b: '\u{1F41F}' }, // fishing / fish
+  { a: '\u{1F3F9}', b: '\u{1F3AF}' }, // bow / target
+  { a: '\u{1F47B}', b: '\u{1F3F0}' }, // ghost / castle
+  { a: '\u{1F37F}', b: '\u{1F3AC}' }, // popcorn / movie
+  { a: '\u{1F577}\u{FE0F}', b: '\u{1F578}\u{FE0F}' }, // spider / web
+  { a: '\u{1F528}', b: '\u{1FAB5}' }, // hammer / wood
+  { a: '\u{26BD}', b: '\u{1F945}' }, // soccer ball / goal
+  { a: '\u{1F934}', b: '\u{1F451}' }, // king / crown
+  { a: '\u{1F382}', b: '\u{1F56F}\u{FE0F}' }, // cake / candle
+  { a: '\u{1F697}', b: '\u{26FD}' }, // car / gas pump
+];
+
+export const settingsSchema = [
+  { key: 'pairsPerRound', label: 'Pairs per round', type: 'number', default: 4 },
 ];
 
 function shuffle(array) {
@@ -31,9 +39,16 @@ function shuffle(array) {
   return arr;
 }
 
-function mount(contentEl, onAttempt) {
+function mount(contentEl, onAttempt, { difficulty } = {}) {
+  const settings = readPuzzleSettings('wordmatch', settingsSchema, difficulty);
+  const pairsPerRound = Math.max(2, settings.pairsPerRound);
+  const cols = Math.min(pairsPerRound, 4);
+
   let destroyed = false;
   let activePointer = null;
+  let remainingPairIds = new Set();
+  let cardEls = {};
+  let targetEls = {};
 
   // Root container styling matching system guidelines. No fixed/100% height here — contentEl
   // already carries the shared .puzzle-content class, which shrinks to fit .puzzle-panel's
@@ -73,16 +88,39 @@ function mount(contentEl, onAttempt) {
 
   [topRow, bottomRow].forEach((row) => {
     row.style.display = 'grid';
-    row.style.gridTemplateColumns = 'repeat(4, 1fr)';
+    row.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
     row.style.gap = '8px';
     row.style.width = '100%';
     boardEl.appendChild(row);
   });
 
-  function handleAttempt(success) {
+  function baseCellStyle(el) {
+    el.style.fontSize = 'clamp(20px, 5vh, 32px)';
+    el.style.display = 'flex';
+    el.style.alignItems = 'center';
+    el.style.justifyContent = 'center';
+    el.style.height = 'clamp(36px, 8vh, 60px)';
+    el.style.borderRadius = '12px';
+  }
+
+  // A correct drop removes just that one pair from the board — the round only fully reshuffles
+  // (nextRound()) once every pair currently shown has been matched, instead of discarding the
+  // rest of the board on the very first attempt.
+  function resolveMatch(pairId) {
+    cardEls[pairId]?.remove();
+    targetEls[pairId]?.remove();
+    delete cardEls[pairId];
+    delete targetEls[pairId];
+    remainingPairIds.delete(pairId);
+    onAttempt(true);
+    if (remainingPairIds.size === 0) nextRound();
+  }
+
+  function handleWrongAttempt() {
     if (destroyed) return;
-    onAttempt(success);
-    nextRound();
+    onAttempt(false);
+    // Board stays as-is — the dragged card already snapped back to its start position in
+    // handlePointerEnd, so the player just retries against the same set.
   }
 
   function nextRound() {
@@ -90,9 +128,11 @@ function mount(contentEl, onAttempt) {
 
     topRow.innerHTML = '';
     bottomRow.innerHTML = '';
+    cardEls = {};
+    targetEls = {};
 
-    // Pick 4 random pairs each round
-    const selectedPairs = shuffle(CONCEPT_PAIRS).slice(0, 4);
+    const selectedPairs = shuffle(CONCEPT_PAIRS).slice(0, pairsPerRound);
+    remainingPairIds = new Set(selectedPairs.map((_, index) => index));
 
     const topItems = selectedPairs.map((pair, index) => ({ text: pair.a, pairId: index }));
     const bottomItems = shuffle(selectedPairs.map((pair, index) => ({ text: pair.b, pairId: index })));
@@ -101,21 +141,13 @@ function mount(contentEl, onAttempt) {
     topItems.forEach((data) => {
       const card = document.createElement('div');
       card.textContent = data.text;
-      card.style.fontFamily = 'var(--font-display)';
-      card.style.fontWeight = '700';
-      card.style.fontSize = '0.9rem';
-      card.style.color = '#ffffff';
-      card.style.textShadow = 'var(--text-outline)';
+      baseCellStyle(card);
       card.style.backgroundColor = 'var(--panel-bg)';
       card.style.border = '2px solid var(--accent-orange-border)';
-      card.style.borderRadius = '12px';
-      card.style.display = 'flex';
-      card.style.alignItems = 'center';
-      card.style.justifyContent = 'center';
-      card.style.height = 'clamp(36px, 8vh, 60px)';
       card.style.cursor = 'grab';
       card.style.position = 'relative';
       card.style.zIndex = '1';
+      cardEls[data.pairId] = card;
 
       card.addEventListener('pointerdown', (e) => {
         if (activePointer) return;
@@ -159,7 +191,8 @@ function mount(contentEl, onAttempt) {
 
         if (dropZone) {
           const targetPairId = parseInt(dropZone.dataset.dropPairId, 10);
-          handleAttempt(draggedPairId === targetPairId);
+          if (draggedPairId === targetPairId) resolveMatch(draggedPairId);
+          else handleWrongAttempt();
         }
       };
 
@@ -174,19 +207,10 @@ function mount(contentEl, onAttempt) {
       const target = document.createElement('div');
       target.textContent = data.text;
       target.dataset.dropPairId = data.pairId;
-
-      target.style.fontFamily = 'var(--font-display)';
-      target.style.fontWeight = '700';
-      target.style.fontSize = '0.9rem';
-      target.style.color = '#ffffff';
-      target.style.textShadow = 'var(--text-outline)';
+      baseCellStyle(target);
       target.style.backgroundColor = 'var(--panel-bg)';
       target.style.border = '2px dashed var(--panel-border)';
-      target.style.borderRadius = '12px';
-      target.style.display = 'flex';
-      target.style.alignItems = 'center';
-      target.style.justifyContent = 'center';
-      target.style.height = 'clamp(36px, 8vh, 60px)';
+      targetEls[data.pairId] = target;
 
       bottomRow.appendChild(target);
     });
@@ -203,8 +227,10 @@ function mount(contentEl, onAttempt) {
   };
 }
 
+// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt, { difficulty }) => {unmount} }
+// See tools/mod-tool/README.md for the full contract this must satisfy.
 export default {
   id: 'wordmatch',
-  titleText: 'MATCH PAIRS',
+  titleText: 'EMOJI MATCH',
   mount,
 };

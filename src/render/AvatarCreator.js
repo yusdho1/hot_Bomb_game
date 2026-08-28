@@ -40,9 +40,16 @@ export function mountAvatarCreator({ zoneEl, previewEl, initialParts, onSave, on
   function spawnItem() {
     const category = AVATAR_CATEGORIES[Math.floor(Math.random() * AVATAR_CATEGORIES.length)];
     const variant = category.options[Math.floor(Math.random() * category.options.length)];
-    const el = document.createElement('img');
-    el.src = variant;
-    el.className = 'falling-item';
+    // A category's "none" option (e.g. no hair) is `null` — there's no image to load for it, so
+    // it falls as a plain-CSS tile instead of an <img> (which would 404 on an empty src).
+    const el = document.createElement(variant === null ? 'div' : 'img');
+    if (variant === null) {
+      el.className = 'falling-item falling-item-empty';
+      el.textContent = 'None';
+    } else {
+      el.src = variant;
+      el.className = 'falling-item';
+    }
     const x = Math.random() * Math.max(0, zoneEl.clientWidth - ITEM_SIZE);
     el.style.left = `${x}px`;
     el.style.top = '-40px';

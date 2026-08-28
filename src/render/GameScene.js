@@ -1,11 +1,14 @@
 import Phaser from 'phaser';
-import { FACE_OPTIONS, EYES_OPTIONS, MOUTH_OPTIONS } from './avatarOptions.js';
+import { AVATAR_CATEGORIES } from './avatarOptions.js';
 
 const PLAYER_RADIUS = 32;
 const BOMB_ICON_SIZE = 52;
 const ALIVE_COLOR = 0x4488ff;
 const ELIMINATED_COLOR = 0x3a3d4a;
-const AVATAR_PART_URLS = [...FACE_OPTIONS, ...EYES_OPTIONS, ...MOUTH_OPTIONS];
+// Built from every declared category (not hardcoded to face/eyes/mouth) so a category added
+// later — e.g. hair — actually gets preloaded and can show up on the spectator board too. `null`
+// entries (a category's "none" option) have no texture to load.
+const AVATAR_PART_URLS = AVATAR_CATEGORIES.flatMap((c) => c.options).filter(Boolean);
 
 // Renders received matchState only. Never computes timers or eliminations itself.
 export class GameScene extends Phaser.Scene {
@@ -137,7 +140,7 @@ export class GameScene extends Phaser.Scene {
       this.playerShapes[player.id] = circle;
 
       if (player.avatar) {
-        const layers = [player.avatar.face, player.avatar.eyes, player.avatar.mouth]
+        const layers = AVATAR_CATEGORIES.map((c) => player.avatar[c.key])
           .filter(Boolean)
           .map((textureKey) => this.add.image(x, y, textureKey).setDisplaySize(avatarDiameter, avatarDiameter));
         this.playerAvatarImages[player.id] = layers;

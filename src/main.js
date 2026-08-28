@@ -60,6 +60,7 @@ const gameOverLossImgEl = document.getElementById('game-over-loss-img');
 const gameOverTitleEl = document.getElementById('game-over-title');
 const gameOverWaitingEl = document.getElementById('game-over-waiting');
 const gameOverWinsEl = document.getElementById('game-over-wins');
+const gameOverStatsEl = document.getElementById('game-over-stats');
 const playAgainBtn = document.getElementById('play-again-btn');
 
 const hostBtn = document.getElementById('host-btn');
@@ -635,7 +636,7 @@ function showTomatoStain(durationSeconds) {
   setTimeout(() => stain.remove(), Math.max(200, durationSeconds * 1000));
 }
 
-function showGameOver({ winners, loserId, winCounts }) {
+function showGameOver({ winners, loserId, winCounts, points, tomatoesThrown }) {
   unmountPuzzleUI();
   unmountWaitingUI();
   applyEliminationNotice(null);
@@ -655,6 +656,7 @@ function showGameOver({ winners, loserId, winCounts }) {
   gameOverWaitingEl.classList.toggle('hidden', role === 'host');
 
   renderWinTally(winCounts);
+  renderMatchStats(points, tomatoesThrown);
 
   if (youWon) {
     gameOverTitleEl.textContent = 'YOU SURVIVED! \u{1F3C6}';
@@ -692,6 +694,41 @@ function renderWinTally(winCounts) {
     gameOverWinsEl.appendChild(chip);
   });
   gameOverWinsEl.classList.remove('hidden');
+}
+
+// Finds the player with the highest value in a {playerId: number} map. Ties just keep whichever
+// was found first in player order.
+function topScorer(tallies) {
+  if (!tallies || !lastMatchState) return null;
+  let best = null;
+  lastMatchState.players.forEach((p) => {
+    const value = tallies[p.id] || 0;
+    if (value > 0 && (!best || value > best.value)) best = { name: p.name || 'Player', value };
+  });
+  return best;
+}
+
+function renderMatchStats(points, tomatoesThrown) {
+  gameOverStatsEl.innerHTML = '';
+  const lines = [];
+
+  const topThrower = topScorer(tomatoesThrown);
+  if (topThrower) lines.push(`\u{1F345} Most tomatoes thrown: ${topThrower.name} (${topThrower.value})`);
+
+  const topEarner = topScorer(points);
+  if (topEarner) lines.push(`\u{1FA99} Most points earned: ${topEarner.name} (${topEarner.value})`);
+
+  if (lines.length === 0) {
+    gameOverStatsEl.classList.add('hidden');
+    return;
+  }
+  lines.forEach((line) => {
+    const row = document.createElement('div');
+    row.className = 'match-stat-row';
+    row.textContent = line;
+    gameOverStatsEl.appendChild(row);
+  });
+  gameOverStatsEl.classList.remove('hidden');
 }
 
 // Brings a finished match back to the room screen with the same connected players, so the Host
@@ -814,17 +851,38 @@ function renderHowToPlayPage(index) {
   });
 }
 
+function showPrevHowToPlayPage() {
+  renderHowToPlayPage((howToPlayPageIndex - 1 + HOW_TO_PLAY_PAGES.length) % HOW_TO_PLAY_PAGES.length);
+}
+function showNextHowToPlayPage() {
+  renderHowToPlayPage((howToPlayPageIndex + 1) % HOW_TO_PLAY_PAGES.length);
+}
+
 howToPlayBtn.addEventListener('click', () => {
   renderHowToPlayPage(0);
   howToPlayModalEl.classList.remove('hidden');
 });
 howToPlayXBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
 howToPlayCloseBtn.addEventListener('click', () => howToPlayModalEl.classList.add('hidden'));
-howToPlayPrevBtn.addEventListener('click', () => {
-  renderHowToPlayPage((howToPlayPageIndex - 1 + HOW_TO_PLAY_PAGES.length) % HOW_TO_PLAY_PAGES.length);
+howToPlayPrevBtn.addEventListener('click', showPrevHowToPlayPage);
+howToPlayNextBtn.addEventListener('click', showNextHowToPlayPage);
+
+// Phone users can swipe left/right across the page content to move between topics, on top of
+// (not instead of) the tap arrows — same threshold/pointer-capture approach as Swipe.js.
+const HOW_TO_PLAY_MIN_SWIPE_PX = 40;
+let howToPlaySwipeStart = null;
+rulePageEl.addEventListener('pointerdown', (e) => {
+  howToPlaySwipeStart = { x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+  rulePageEl.setPointerCapture(e.pointerId);
 });
-howToPlayNextBtn.addEventListener('click', () => {
-  renderHowToPlayPage((howToPlayPageIndex + 1) % HOW_TO_PLAY_PAGES.length);
+rulePageEl.addEventListener('pointerup', (e) => {
+  if (!howToPlaySwipeStart || howToPlaySwipeStart.pointerId !== e.pointerId) return;
+  const dx = e.clientX - howToPlaySwipeStart.x;
+  const dy = e.clientY - howToPlaySwipeStart.y;
+  howToPlaySwipeStart = null;
+  if (Math.abs(dx) < HOW_TO_PLAY_MIN_SWIPE_PX || Math.abs(dx) < Math.abs(dy)) return;
+  if (dx < 0) showNextHowToPlayPage();
+  else showPrevHowToPlayPage();
 });
 
 // --- Room code copy ---

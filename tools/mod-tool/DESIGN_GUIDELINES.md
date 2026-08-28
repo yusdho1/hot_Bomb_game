@@ -62,6 +62,12 @@ different emoji art), they're not stylable (can't recolor, can't guarantee they 
 container), and this is a cross-platform party game where players are frequently on different
 devices in the *same match* — an emoji-based puzzle looks different to every player simultaneously.
 
+**One deliberate, narrow exception**: `WordMatch.js` ("EMOJI MATCH") uses real emoji on purpose —
+the project owner explicitly weighed the cross-platform-rendering tradeoff above and chose real
+pictures for that one puzzle anyway. This is *not* a reversal of the rule for new minigames — a
+new puzzle wanting picture content should still go through the sprite/CSS/new-PNG order above
+first, and only reach for raw emoji with the same kind of explicit, deliberate sign-off.
+
 ## Interaction patterns — the part that's easy to get wrong
 
 This game runs on phones and on desktop in the same match, often simultaneously. Every

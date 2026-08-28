@@ -60,16 +60,16 @@
       "colorYellow": "#e8d721",
       "colorPink": "#f285f9",
       "colorTeal": "#069494",
-      "colorCount": 6,
+      "colorCount": 4,
       "difficultyPresets": {
         "easy": {
-          "colorCount": 4
+          "colorCount": 3
         },
         "medium": {
-          "colorCount": 6
+          "colorCount": 4
         },
         "hard": {
-          "colorCount": 8
+          "colorCount": 6
         }
       }
     },
@@ -81,7 +81,7 @@
           "complexRuleChance": 0
         },
         "medium": {
-          "complexRuleChance": 40
+          "complexRuleChance": 50
         },
         "hard": {
           "complexRuleChance": 75
@@ -100,6 +100,20 @@
         },
         "hard": {
           "gridSize": 12
+        }
+      }
+    },
+    "wordmatch": {
+      "pairsPerRound": 4,
+      "difficultyPresets": {
+        "easy": {
+          "pairsPerRound": 2
+        },
+        "medium": {
+          "pairsPerRound": 4
+        },
+        "hard": {
+          "pairsPerRound": 6
         }
       }
     }
@@ -183,7 +197,11 @@
       {
         "key": "hair",
         "label": "Hair",
-        "options": []
+        "options": [
+          "/UI/Avatars/hair1.png",
+          "/UI/Avatars/hair 2.png",
+          null
+        ]
       }
     ]
   }

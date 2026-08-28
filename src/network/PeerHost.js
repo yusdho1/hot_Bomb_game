@@ -273,8 +273,9 @@ export class PeerHost {
     this._stopLoop();
     const { winners } = endMatch(this.matchState, loserId);
     this._broadcastState();
-    if (this.onGameOver) this.onGameOver({ winners, loserId, winCounts: this.matchState.winCounts });
-    this._broadcast(createGameOverMessage(winners, loserId, this.matchState.winCounts));
+    const { winCounts, points, tomatoesThrown } = this.matchState;
+    if (this.onGameOver) this.onGameOver({ winners, loserId, winCounts, points, tomatoesThrown });
+    this._broadcast(createGameOverMessage(winners, loserId, winCounts, points, tomatoesThrown));
   }
 
   _stopLoop() {
