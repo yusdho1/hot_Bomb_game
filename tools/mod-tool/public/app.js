@@ -61,6 +61,7 @@ async function loadConfig() {
   renderMinigameSettings();
   renderSounds();
   renderAvatars();
+  renderDebugMinigameOptions();
 }
 
 async function saveConfig(successMessage) {
@@ -545,6 +546,30 @@ document.querySelectorAll('.preview-reload-btn').forEach((btn) => {
     const frame = document.getElementById(btn.dataset.target);
     if (frame) frame.src = frame.src;
   });
+});
+
+function renderDebugMinigameOptions() {
+  const select = document.getElementById('debug-minigame-select');
+  const current = select.value;
+  select.innerHTML = '';
+  state.config.minigames.forEach((entry) => {
+    const opt = document.createElement('option');
+    opt.value = entry.id;
+    opt.textContent = entry.id;
+    select.appendChild(opt);
+  });
+  if (current && state.config.minigames.some((m) => m.id === current)) select.value = current;
+}
+
+// Loads a specific minigame + difficulty directly into both preview frames via the game's own
+// ?debugPuzzle=/&difficulty= bootstrap (src/main.js) — no lobby, no hosting, no timer.
+document.getElementById('debug-load-btn').addEventListener('click', () => {
+  const id = document.getElementById('debug-minigame-select').value;
+  const difficulty = document.getElementById('debug-difficulty-select').value;
+  if (!id) return;
+  const url = `http://localhost:5173/?debugPuzzle=${encodeURIComponent(id)}&difficulty=${encodeURIComponent(difficulty)}`;
+  document.getElementById('preview-frame-desktop').src = url;
+  document.getElementById('preview-frame-phone').src = url;
 });
 
 loadConfig().catch((err) => showStatus(err.message, true));

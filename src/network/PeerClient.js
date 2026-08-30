@@ -4,6 +4,7 @@ import {
   createPuzzleResultMessage,
   createZipSolvedMessage,
   createShopPurchaseMessage,
+  createTutorialReadyMessage,
   isValidMessage,
 } from './NetworkMessages.js';
 
@@ -15,6 +16,7 @@ export class PeerClient {
 
     this.onConnected = null;
     this.onLobbyUpdate = null;
+    this.onTutorialStarted = null;
     this.onMatchStarted = null;
     this.onStateUpdate = null;
     this.onGameOver = null;
@@ -69,6 +71,12 @@ export class PeerClient {
     }
   }
 
+  sendTutorialReady() {
+    if (this.conn && this.conn.open) {
+      this.conn.send(createTutorialReadyMessage(this.peer.id));
+    }
+  }
+
   // Leave the room entirely (the "Leave Room" button) — closes the connection to the Host (who
   // sees it as a normal disconnect, same as a dropped connection) and tears down the underlying
   // PeerJS peer.
@@ -83,6 +91,9 @@ export class PeerClient {
     switch (message.type) {
       case MessageType.LOBBY_UPDATE:
         if (this.onLobbyUpdate) this.onLobbyUpdate(message);
+        break;
+      case MessageType.TUTORIAL_START:
+        if (this.onTutorialStarted) this.onTutorialStarted(message.matchState);
         break;
       case MessageType.START_MATCH:
         if (this.onMatchStarted) this.onMatchStarted(message.matchState);

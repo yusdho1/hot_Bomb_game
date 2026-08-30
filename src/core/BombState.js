@@ -6,6 +6,7 @@ export const DEFAULT_STREAK_TARGET = gameConfig.settings.streakTarget;
 export const DEFAULT_ZIP_ENABLED = gameConfig.settings.zipEnabledDefault;
 export const DEFAULT_ZIP_STAIN_SECONDS = gameConfig.settings.zipStainSecondsDefault;
 export const DEFAULT_DIFFICULTY = gameConfig.settings.difficultyDefault || 'medium';
+export const DEFAULT_TUTORIAL_ENABLED = gameConfig.settings.tutorialEnabledDefault || false;
 
 const POINTS = gameConfig.settings.points;
 
@@ -33,7 +34,7 @@ function pickUnusedColor(matchState) {
   return pool[Math.floor(Math.random() * pool.length)];
 }
 
-// phase: 'lobby' | 'active' | 'ended'
+// phase: 'lobby' | 'tutorial' | 'active' | 'ended'
 export function createMatchState(
   hostId,
   hostName,
@@ -42,7 +43,8 @@ export function createMatchState(
   zipEnabled = DEFAULT_ZIP_ENABLED,
   zipStainDurationSeconds = DEFAULT_ZIP_STAIN_SECONDS,
   streakTarget = DEFAULT_STREAK_TARGET,
-  difficulty = DEFAULT_DIFFICULTY
+  difficulty = DEFAULT_DIFFICULTY,
+  tutorialEnabled = DEFAULT_TUTORIAL_ENABLED
 ) {
   const matchState = {
     phase: 'lobby',
@@ -52,6 +54,11 @@ export function createMatchState(
     streakCount: 0,
     streakTarget,
     difficulty,
+    tutorialEnabled,
+    // playerId -> true once that player has marked themselves ready during the 'tutorial' phase.
+    // Reset in resetToLobby (unlike streakTarget/difficulty/tutorialEnabled, this isn't a lobby
+    // *setting* — it's per-round practice-loop progress).
+    tutorialReady: {},
     globalTimeRemaining: matchDurationSeconds,
     matchDurationSeconds,
     eliminationNotice: null,
@@ -109,8 +116,11 @@ export function removePlayer(matchState, playerId) {
   const player = matchState.players.find((p) => p.id === playerId);
   if (!player) return;
 
-  if (matchState.phase === 'lobby') {
+  // 'tutorial' has no alive/eliminated concept (nobody can lose during practice) — a disconnect
+  // there behaves like a lobby-leave, not a mid-match elimination.
+  if (matchState.phase === 'lobby' || matchState.phase === 'tutorial') {
     matchState.players = matchState.players.filter((p) => p.id !== playerId);
+    delete matchState.tutorialReady[playerId];
     return;
   }
 
@@ -137,6 +147,30 @@ export function setStreakTarget(matchState, value) {
 export function setDifficulty(matchState, level) {
   if (!DIFFICULTY_LEVELS.has(level)) return;
   matchState.difficulty = level;
+}
+
+export function setTutorialEnabled(matchState, enabled) {
+  matchState.tutorialEnabled = !!enabled;
+}
+
+// Enters the practice phase instead of the real match — beginMatch() (PeerHost.js) decides
+// whether to call this or startMatch() based on matchState.tutorialEnabled.
+export function beginTutorial(matchState) {
+  matchState.phase = 'tutorial';
+  matchState.tutorialReady = {};
+}
+
+// One player marking themselves ready during the 'tutorial' phase. Returns true if applied, so
+// the caller (PeerHost) knows whether to check "is everyone ready now".
+export function markTutorialReady(matchState, playerId) {
+  if (matchState.phase !== 'tutorial') return false;
+  matchState.tutorialReady[playerId] = true;
+  return true;
+}
+
+// True once every currently-connected player has marked themselves ready.
+export function isTutorialComplete(matchState) {
+  return matchState.players.every((p) => matchState.tutorialReady[p.id]);
 }
 
 export function startMatch(matchState) {
@@ -344,6 +378,7 @@ export function resetToLobby(matchState) {
   matchState.pendingSkipPass = null;
   matchState.turnNotice = null;
   matchState.turnNoticeSeq = 0;
+  matchState.tutorialReady = {};
 }
 
 function eliminatePlayer(matchState, playerId) {

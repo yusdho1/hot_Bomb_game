@@ -390,6 +390,24 @@
         accent-color: var(--accent-orange-bottom);
         cursor: pointer;
       }
+      #tutorial-settings-row {
+        display: flex;
+        align-items: center;
+      }
+      #tutorial-enabled-label {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #cfc9f0;
+        cursor: pointer;
+      }
+      #tutorial-enabled-checkbox {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-orange-bottom);
+        cursor: pointer;
+      }
       #zip-duration-stepper {
         display: flex;
         align-items: center;
@@ -520,14 +538,6 @@
         line-height: 0;
         border-radius: 12px;
         overflow: hidden;
-        /* Lets descendants (the puzzle panel and its contents) size themselves in cqmin — a
-           percentage of *this* box's real dimensions, correct in both sizing regimes below
-           (letterboxed 8:5 card on desktop, full-viewport-arbitrary-aspect on portrait phones) —
-           rather than raw vh, which only knows the viewport and has no idea how big this
-           container itself actually ended up. This is what lets the puzzle panel (and its
-           buttons/grid/text) keep growing proportionally instead of hitting a fixed px ceiling
-           tuned for a small mobile viewport once this container gets much bigger on desktop. */
-        container-type: size;
       }
       /* Portrait phones: the 800x500 landscape ratio above would squash the board into a thin
          strip and starve the puzzle overlays of height, forcing them to scroll. Let the
@@ -589,7 +599,6 @@
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
-      #puzzle-overlay,
       #zip-overlay,
       #shop-overlay {
         position: absolute;
@@ -599,6 +608,63 @@
         justify-content: center;
         background: rgba(10, 10, 14, 0.55);
         z-index: 10;
+      }
+      /* The active holder's own puzzle escapes the letterboxed spectator-board card entirely and
+         covers the real device screen (position:fixed, not absolute-within-#game-container) — the
+         puzzle needs the biggest usable space, and the board behind it is irrelevant while
+         solving. This is a real full-page view, not a popup over a dimmed backdrop — hence the
+         opaque background (matches body's) instead of a translucent scrim, and no
+         align-items/justify-content centering: .puzzle-page (built by mountPuzzleOverlay) fills
+         it edge to edge. container-type:size lives here (moved from #game-container) so
+         .puzzle-page's cqmin/cqh-based sizing measures against the true viewport instead of the
+         smaller letterboxed card. Zip/Shop stay boxed in the card (unchanged above) as real
+         popups — only the holder's own solving view needs to go full-screen. */
+      #puzzle-overlay {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        display: flex;
+        background: linear-gradient(180deg, #3b4cca 0%, #6a2fb0 55%, #7a2fb0 100%);
+        z-index: 100;
+        container-type: size;
+      }
+      /* Tutorial Mode's practice loop — same full-screen treatment as #puzzle-overlay (it's the
+         same underlying puzzle mount, just in practiceMode), plus a persistent ready/skip action
+         bar that survives each puzzle re-mount underneath it. */
+      #tutorial-panel {
+        position: fixed;
+        inset: 0;
+        width: 100vw;
+        height: 100dvh;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, #3b4cca 0%, #6a2fb0 55%, #7a2fb0 100%);
+        z-index: 100;
+        container-type: size;
+      }
+      /* mountPuzzleOverlay clears and rebuilds whatever containerEl it's given each call —
+         display:contents keeps this div out of the layout box entirely, so the .puzzle-page it
+         builds becomes a direct flex child of #tutorial-panel, sized to fill everything above the
+         persistent #tutorial-actions bar below it, without an extra wrapping box. */
+      #tutorial-puzzle-mount {
+        display: contents;
+      }
+      #tutorial-actions {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        flex-shrink: 0;
+        padding: 8px 14px 14px;
+        box-sizing: border-box;
+      }
+      #tutorial-ready-count {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 13px;
+        color: #cfc9f0;
       }
       #points-balance {
         position: absolute;
@@ -773,6 +839,55 @@
         box-sizing: border-box;
         position: relative;
       }
+      /* The active holder's real puzzle screen — a genuine full page (built by
+         mountPuzzleOverlay into #puzzle-overlay/#tutorial-panel), not a floating card. Title at
+         top, fuse timer + streak dots below it, then the framed .puzzle-game-box takes whatever
+         vertical room is left, then a small footer logo. .puzzle-panel (above) is unrelated —
+         that one's still the floating-card look used by real popups (How-to-Play, Avatar
+         Creator). */
+      .puzzle-page {
+        width: 100%;
+        height: 100%;
+        max-width: min(100%, 720px);
+        margin: 0 auto;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 14px 10px;
+        box-sizing: border-box;
+      }
+      .puzzle-header {
+        flex-shrink: 0;
+      }
+      /* The one part of the page with a distinct framed background — everything else (title,
+         fuse timer, dots, footer logo) sits directly on the page background. Takes whatever
+         vertical space isn't used by that chrome, so it's always the dominant element on screen. */
+      .puzzle-game-box {
+        width: 100%;
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 20px;
+        border: 2px solid var(--panel-border);
+        background-color: var(--panel-bg);
+        background-image:
+          radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
+          radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
+          url('/UI/Sprites/background_bp_Gradinet.png');
+        background-size: 56px 56px, 36px 36px, 100% 100%;
+        background-position: 0 0, 18px 20px, center;
+        background-repeat: repeat, repeat, no-repeat;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+        box-sizing: border-box;
+        padding: 14px;
+        overflow: hidden;
+        position: relative;
+      }
       .puzzle-banner {
         width: 100%;
         display: flex;
@@ -875,17 +990,21 @@
       }
       .puzzle-content {
         width: 100%;
+        height: 100%;
         display: flex;
         flex-direction: column;
         align-items: center;
+        justify-content: center;
         gap: 16px;
         position: relative;
         min-height: 0;
         flex-shrink: 1;
       }
+      /* Small on purpose — this is a footer credit on a full page dominated by .puzzle-game-box,
+         not a floating card that needed its own branding to feel complete. */
       .puzzle-footer-logo {
-        width: 65%;
-        max-width: 46cqmin;
+        width: 30%;
+        max-width: 140px;
         margin-top: 2px;
         flex-shrink: 0;
       }
@@ -905,6 +1024,34 @@
         color: #ffdd55;
         text-align: center;
         text-shadow: 1px 1px 0 var(--text-outline);
+      }
+      .puzzle-tutorial-text {
+        color: #f2f2f2;
+      }
+      .puzzle-tutorial-nav {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 24px;
+        width: 100%;
+      }
+      .puzzle-tutorial-nav-btn {
+        width: clamp(34px, 9cqmin, 56px);
+        height: clamp(34px, 9cqmin, 56px);
+        min-height: 0;
+        padding: 0;
+        border: none;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff5cc;
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: clamp(18px, 5cqmin, 30px);
+        line-height: 1;
+        cursor: pointer;
+      }
+      .puzzle-tutorial-nav-btn:hover {
+        background: rgba(255, 255, 255, 0.2);
       }
       .zip-panel,
       .shop-panel {
@@ -931,7 +1078,6 @@
       /* Let the in-match puzzle panels actually use the extra room #game-container now gets on
          portrait phones, instead of staying pinned to a small desktop-sized card. */
       @media (max-width: 700px) and (orientation: portrait) {
-        #puzzle-overlay .puzzle-panel,
         .zip-panel,
         .shop-panel {
           width: 94vw;
@@ -1082,7 +1228,10 @@
       .stroop-word {
         font-family: var(--font-display);
         font-weight: 800;
-        font-size: 30px;
+        /* Was a flat 30px — didn't grow with the puzzle panel at all. cqmin-scaled like
+           everything else in the panel so it actually fills the extra room on a full-screen
+           overlay instead of leaving dead space above the (also now bigger) swatch grid. */
+        font-size: clamp(26px, 12cqmin, 72px);
         line-height: 1.2;
         margin-top: 2px;
         text-shadow: 2px 2px 0 rgba(0, 0, 0, 0.35);
@@ -1091,10 +1240,20 @@
         width: 100%;
         display: grid;
         grid-template-columns: 1fr 1fr;
+        justify-items: center;
+        align-items: center;
         gap: 10px;
       }
       .stroop-btn {
-        min-height: clamp(32px, 9cqmin, 76px);
+        /* Square, not stretched — these are icon-like color swatches with no text content, so
+           they're sized to their own grid-column width (aspect-ratio derives height from that,
+           no JS measurement needed) rather than an independent height that could distort them
+           into tall rectangles. */
+        /* min() with the column's full width keeps it square while still capping the absolute
+           size to a sane fraction of the box's height, instead of letting aspect-ratio blow the
+           swatch up arbitrarily tall on a very narrow 2-column grid. */
+        width: min(100%, 32cqh);
+        aspect-ratio: 1 / 1;
         border-radius: 10px;
         border: 3px solid rgba(0, 0, 0, 0.35);
         cursor: pointer;
@@ -1110,7 +1269,10 @@
         gap: 10px;
       }
       .puzzle-option-btn {
-        min-height: 56px;
+        /* Text content, not an icon — sized to fit its label rather than stretched to fill
+           space: a modest, comfortably-tappable height that scales gently with the screen, not
+           a tall rectangle. Free to be wide (grid column width), just not tall. */
+        min-height: clamp(50px, 12cqh, 90px);
         padding: 8px 10px;
         border-radius: 12px;
         border: 3px solid var(--accent-orange-border);
@@ -1118,7 +1280,7 @@
         color: #7a2000;
         font-family: var(--font-display);
         font-weight: 800;
-        font-size: 15px;
+        font-size: clamp(16px, 4cqmin, 24px);
         text-align: center;
         cursor: pointer;
         box-shadow: 0 3px 0 var(--accent-orange-border);
@@ -1132,15 +1294,17 @@
         box-shadow: 0 1px 0 var(--accent-orange-border);
       }
       .swipe-zone {
-        width: 100%;
-        min-height: clamp(90px, 24cqmin, 220px);
+        /* A single icon-like drop zone (one big arrow), not a text button — square, sized to
+           whichever of the box's width/height is tighter, same logic as .stroop-btn. */
+        width: min(100%, 55cqh);
+        aspect-ratio: 1 / 1;
         border-radius: 14px;
         border: 3px dashed rgba(255, 255, 255, 0.4);
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: var(--font-display);
-        font-size: 40px;
+        font-size: clamp(36px, 22cqmin, 140px);
         color: rgba(255, 255, 255, 0.7);
         touch-action: none;
         user-select: none;
@@ -1557,6 +1721,12 @@
               <button type="button" data-level="hard">Hard</button>
             </div>
           </div>
+          <div id="tutorial-settings-row">
+            <label id="tutorial-enabled-label">
+              <input type="checkbox" id="tutorial-enabled-checkbox" />
+              Tutorial Mode (untimed practice round first)
+            </label>
+          </div>
           <button id="start-btn" class="btn-primary" disabled>Start Game</button>
         </div>
 
@@ -1566,6 +1736,15 @@
       </div>
 
       <div id="lobby-status"></div>
+    </div>
+
+    <div id="tutorial-panel" class="hidden">
+      <div id="tutorial-puzzle-mount"></div>
+      <div id="tutorial-actions">
+        <span id="tutorial-ready-count"></span>
+        <button id="tutorial-ready-btn" class="btn-primary" type="button">✅ I'm Ready!</button>
+        <button id="tutorial-skip-btn" class="btn-secondary hidden" type="button">Skip Tutorial</button>
+      </div>
     </div>
 
     <div id="game-container" class="hidden">

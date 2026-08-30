@@ -102,5 +102,6 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 export default {
   id: 'swipe',
   titleImg: '/UI/Swipe.png',
+  tutorialText: 'Swipe the zone in the shown direction — watch for "DON\'T" or "OPPOSITE" twists on the instruction!',
   mount,
 };

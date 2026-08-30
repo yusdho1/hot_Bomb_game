@@ -91,6 +91,20 @@
         <p class="hint">Shows the actual running game at two sizes — requires <code>npm run dev</code> to already
           be running on its default port (5173). Config edits need a page reload in the game to take effect (same
           as any other config change); use each frame's own Reload button after saving.</p>
+
+        <h3>Debug: preview one minigame</h3>
+        <p class="hint">Loads a specific minigame directly into both frames below — no lobby, no hosting, no timer.
+          ‹›  still browses the other enabled minigames from there.</p>
+        <div class="add-row">
+          <select id="debug-minigame-select"></select>
+          <select id="debug-difficulty-select">
+            <option value="easy">Easy</option>
+            <option value="medium" selected>Medium</option>
+            <option value="hard">Hard</option>
+          </select>
+          <button id="debug-load-btn" type="button">Load</button>
+        </div>
+
         <div id="preview-frames">
           <div class="preview-col">
             <div class="preview-col-header">

@@ -2,7 +2,7 @@ import Phaser from 'phaser';
 import { PeerHost } from './network/PeerHost.js';
 import { PeerClient } from './network/PeerClient.js';
 import { GameScene } from './render/GameScene.js';
-import { mountPuzzleOverlay as createPuzzleOverlay } from './render/puzzles/PuzzleOverlay.js';
+import { mountPuzzleOverlay as createPuzzleOverlay, PUZZLES } from './render/puzzles/PuzzleOverlay.js';
 import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
 import { SoundManager } from './render/SoundManager.js';
 import { Haptics } from './render/Haptics.js';
@@ -32,6 +32,12 @@ const streakPlusBtn = document.getElementById('streak-plus-btn');
 const streakValueEl = document.getElementById('streak-value');
 const difficultySelectorEl = document.getElementById('difficulty-selector');
 const difficultyBtns = Array.from(difficultySelectorEl.querySelectorAll('button'));
+const tutorialEnabledCheckbox = document.getElementById('tutorial-enabled-checkbox');
+const tutorialPanelEl = document.getElementById('tutorial-panel');
+const tutorialPuzzleMountEl = document.getElementById('tutorial-puzzle-mount');
+const tutorialReadyCountEl = document.getElementById('tutorial-ready-count');
+const tutorialReadyBtn = document.getElementById('tutorial-ready-btn');
+const tutorialSkipBtn = document.getElementById('tutorial-skip-btn');
 const startBtn = document.getElementById('start-btn');
 const clientWaitingEl = document.getElementById('client-waiting');
 const lobbyStatusEl = document.getElementById('lobby-status');
@@ -156,6 +162,8 @@ let lastEliminationNoticeId = undefined;
 let lastZipStainSeq = 0;
 let lastTurnNoticeSeq = 0;
 let puzzleHandle = null;
+let tutorialPuzzleHandle = null;
+let tutorialPuzzleIndex = 0;
 let zipHandle = null;
 let vibratedThresholds = new Set();
 let avatarCreatorHandle = null;
@@ -167,6 +175,47 @@ let currentDifficulty = 'medium';
 let currentRoomCode = null;
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
+
+// --- Mod-tool debug/scenario preview ---
+// ?debugPuzzle=<id>&difficulty=<easy|medium|hard> bypasses the entry/lobby screens and all
+// PeerJS/networking entirely — pure local preview of one puzzle, reusing the exact same
+// practiceMode puzzle mount Tutorial Mode uses (no new puzzle-mounting code needed). ‹›  still
+// browses the other enabled minigames from whatever id it started at.
+const debugParams = new URLSearchParams(window.location.search);
+const debugPuzzleId = debugParams.get('debugPuzzle');
+if (debugPuzzleId) {
+  entryEl.classList.add('hidden');
+  lobbyEl.classList.add('hidden');
+  gameEl.classList.remove('hidden');
+  puzzleOverlayEl.classList.remove('hidden');
+
+  const debugDifficulty = debugParams.get('difficulty') || 'medium';
+  let debugIndex = Math.max(
+    0,
+    PUZZLES.findIndex((p) => p.id === debugPuzzleId)
+  );
+  let debugHandle = null;
+
+  const mountDebugPuzzle = () => {
+    if (debugHandle) debugHandle.unmount();
+    const puzzle = PUZZLES[debugIndex];
+    debugHandle = createPuzzleOverlay(puzzleOverlayEl, {
+      onAttempt: () => {},
+      practiceMode: true,
+      puzzleId: puzzle.id,
+      difficulty: debugDifficulty,
+      onNext: () => {
+        debugIndex = (debugIndex + 1) % PUZZLES.length;
+        mountDebugPuzzle();
+      },
+      onPrev: () => {
+        debugIndex = (debugIndex - 1 + PUZZLES.length) % PUZZLES.length;
+        mountDebugPuzzle();
+      },
+    });
+  };
+  mountDebugPuzzle();
+}
 
 // Drives #game-container's real pixel size on portrait phones via JS rather than trusting CSS
 // viewport units alone (dvh support/behavior is inconsistent across mobile browsers — when it
@@ -241,7 +290,8 @@ function renderLobbyPlayers(
   zipDurationSeconds,
   winCounts,
   streakTargetValue,
-  difficultyValue
+  difficultyValue,
+  tutorialEnabledValue
 ) {
   playerListEl.innerHTML = '';
   players.forEach((player) => {
@@ -286,6 +336,7 @@ function renderLobbyPlayers(
   if (zipDurationSeconds !== undefined) setZipDurationDisplay(zipDurationSeconds);
   if (streakTargetValue !== undefined) setStreakDisplay(streakTargetValue);
   if (difficultyValue !== undefined) setDifficultyDisplay(difficultyValue);
+  if (tutorialEnabledValue !== undefined) tutorialEnabledCheckbox.checked = tutorialEnabledValue;
   clientWaitingEl.textContent =
     `Waiting for host to start... (Match length: ${matchDurationSeconds}s, ` +
     `streak: ${streakTarget}, difficulty: ${capitalize(currentDifficulty)})`;
@@ -341,6 +392,7 @@ function startGame(matchState) {
     phaserGame.destroy(true);
     phaserGame = null;
   }
+  unmountTutorial();
   lobbyEl.classList.add('hidden');
   gameEl.classList.remove('hidden');
   lastMatchState = matchState;
@@ -380,6 +432,8 @@ function startGame(matchState) {
 function applyMatchState(matchState) {
   const previousHolderId = lastMatchState ? lastMatchState.bombHolderId : undefined;
   lastMatchState = matchState;
+
+  if (matchState.phase === 'tutorial') updateTutorialReadyCount(matchState);
 
   if (scene) scene.applyMatchState(matchState);
   applyEliminationNotice(matchState.eliminationNotice);
@@ -471,6 +525,67 @@ function unmountPuzzleUI() {
   }
   SoundManager.stopPersonalRoundMusic();
 }
+
+// --- Tutorial Mode ---
+
+function mountTutorialPuzzle() {
+  if (tutorialPuzzleHandle) tutorialPuzzleHandle.unmount();
+  const puzzle = PUZZLES[tutorialPuzzleIndex];
+  tutorialPuzzleHandle = createPuzzleOverlay(tutorialPuzzleMountEl, {
+    onAttempt: (success) => {
+      if (!success) triggerShake('shake-small');
+    },
+    practiceMode: true,
+    puzzleId: puzzle.id,
+    difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
+    onNext: () => {
+      tutorialPuzzleIndex = (tutorialPuzzleIndex + 1) % PUZZLES.length;
+      mountTutorialPuzzle();
+    },
+    onPrev: () => {
+      tutorialPuzzleIndex = (tutorialPuzzleIndex - 1 + PUZZLES.length) % PUZZLES.length;
+      mountTutorialPuzzle();
+    },
+  });
+}
+
+function updateTutorialReadyCount(matchState) {
+  const total = matchState.players.length;
+  const readyCount = Object.keys(matchState.tutorialReady || {}).length;
+  tutorialReadyCountEl.textContent = `${readyCount}/${total} ready`;
+  const alreadyReady = !!matchState.tutorialReady[localPlayerId];
+  tutorialReadyBtn.disabled = alreadyReady;
+  tutorialReadyBtn.textContent = alreadyReady ? '✅ Waiting for others...' : "✅ I'm Ready!";
+}
+
+function startTutorial(matchState) {
+  lobbyEl.classList.add('hidden');
+  tutorialPanelEl.classList.remove('hidden');
+  lastMatchState = matchState;
+  tutorialPuzzleIndex = 0;
+  mountTutorialPuzzle();
+  updateTutorialReadyCount(matchState);
+  tutorialSkipBtn.classList.toggle('hidden', role !== 'host');
+}
+
+function unmountTutorial() {
+  tutorialPanelEl.classList.add('hidden');
+  if (tutorialPuzzleHandle) {
+    tutorialPuzzleHandle.unmount();
+    tutorialPuzzleHandle = null;
+  }
+}
+
+tutorialReadyBtn.addEventListener('click', () => {
+  if (role === 'host' && host) host.hostSubmitTutorialReady();
+  else if (role === 'client' && client) client.sendTutorialReady();
+});
+tutorialSkipBtn.addEventListener('click', () => {
+  if (role === 'host' && host) host.skipTutorial();
+});
+tutorialEnabledCheckbox.addEventListener('change', () => {
+  if (role === 'host' && host) host.setTutorialEnabled(tutorialEnabledCheckbox.checked);
+});
 
 function submitPuzzleResult(success) {
   if (!success) triggerShake('shake-small');
@@ -767,7 +882,8 @@ function returnToLobby(message) {
     message.zipStainDurationSeconds,
     message.winCounts,
     message.streakTarget,
-    message.difficulty
+    message.difficulty,
+    message.tutorialEnabled
   );
 }
 
@@ -964,8 +1080,10 @@ joinConfirmBtn.addEventListener('click', () => {
       message.zipStainDurationSeconds,
       message.winCounts,
       message.streakTarget,
-      message.difficulty
+      message.difficulty,
+      message.tutorialEnabled
     );
+  client.onTutorialStarted = (matchState) => startTutorial(matchState);
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
   client.onGameOver = (result) => showGameOver(result);
@@ -1043,8 +1161,10 @@ hostBtn.addEventListener('click', () => {
       matchState.zipStainDurationSeconds,
       matchState.winCounts,
       matchState.streakTarget,
-      matchState.difficulty
+      matchState.difficulty,
+      matchState.tutorialEnabled
     );
+  host.onTutorialStarted = (matchState) => startTutorial(matchState);
   host.onMatchStarted = (matchState) => startGame(matchState);
   host.onStateUpdate = (matchState) => applyMatchState(matchState);
   host.onGameOver = (result) => showGameOver(result);

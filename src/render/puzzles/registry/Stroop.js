@@ -119,5 +119,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 export default {
   id: 'stroop',
   titleImg: '/UI/Stroop Title.png',
+  tutorialText:
+    'Tap the swatch that matches — the prompt tells you whether to match the WORD or the COLOR it\'s printed in.',
   mount,
 };

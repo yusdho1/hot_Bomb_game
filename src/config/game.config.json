@@ -10,6 +10,7 @@
     "personalTimerSeconds": 10,
     "streakTarget": 3,
     "difficultyDefault": "medium",
+    "tutorialEnabledDefault": false,
     "zipEnabledDefault": true,
     "zipStainSecondsDefault": 1.5,
     "zipStainSecondsSteps": [
@@ -173,7 +174,9 @@
         "options": [
           "/UI/Avatars/Avatar__0007_Face1.png",
           "/UI/Avatars/Avatar__0008_Face2.png",
-          "/UI/Avatars/Avatar__0007_Face3.png"
+          "/UI/Avatars/Avatar__0007_Face3.png",
+          "/UI/Avatars/Avatar__0007_Face4.png",
+          "/UI/Avatars/Avatar__0007_Face6.png"
         ]
       },
       {
@@ -182,7 +185,9 @@
         "options": [
           "/UI/Avatars/Avatar__0002_Eyes1.png",
           "/UI/Avatars/Avatar__0001_Eyes2.png",
-          "/UI/Avatars/Avatar__0000_Eyes3.png"
+          "/UI/Avatars/Avatar__0000_Eyes3.png",
+          "/UI/Avatars/eyesdead.png",
+          "/UI/Avatars/Avatar__0002_Eyes4.png"
         ]
       },
       {
@@ -199,8 +204,11 @@
         "label": "Hair",
         "options": [
           "/UI/Avatars/hair1.png",
-          "/UI/Avatars/hair 2.png",
-          null
+          null,
+          "/UI/Avatars/hair2.png",
+          "/UI/Avatars/hair3.png",
+          "/UI/Avatars/hair4.png",
+          "/UI/Avatars/hair5.png"
         ]
       }
     ]

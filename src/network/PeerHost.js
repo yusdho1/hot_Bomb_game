@@ -8,6 +8,10 @@ import {
   setZipSettings,
   setStreakTarget,
   setDifficulty,
+  setTutorialEnabled,
+  beginTutorial,
+  markTutorialReady,
+  isTutorialComplete,
   startMatch,
   tickTimers,
   selectNextHolder,
@@ -23,6 +27,7 @@ import {
 import {
   MessageType,
   createLobbyUpdateMessage,
+  createTutorialStartMessage,
   createStartMatchMessage,
   createStateUpdateMessage,
   createGameOverMessage,
@@ -46,6 +51,7 @@ export class PeerHost {
     // Assign these from outside to react to lifecycle events.
     this.onReady = null;
     this.onLobbyUpdate = null;
+    this.onTutorialStarted = null;
     this.onMatchStarted = null;
     this.onStateUpdate = null;
     this.onGameOver = null;
@@ -108,6 +114,13 @@ export class PeerHost {
     this._emitLobbyUpdate();
   }
 
+  // Host-only lobby control: whether "Start Game" goes through the untimed practice phase first.
+  setTutorialEnabled(enabled) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setTutorialEnabled(this.matchState, enabled);
+    this._emitLobbyUpdate();
+  }
+
   // Host-only: remove a player from the lobby. Just closes their connection — the existing
   // conn.on('close') handler (registered in the constructor) does the actual removePlayer +
   // lobby-update broadcast, same as any other lobby-phase disconnect.
@@ -129,9 +142,47 @@ export class PeerHost {
     this.peer.destroy();
   }
 
-  // Host-only: begin the match.
+  // Host-only: begin the match — or, if Tutorial Mode is on, the untimed practice phase first.
   beginMatch() {
     if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    if (this.matchState.tutorialEnabled) {
+      beginTutorial(this.matchState);
+      this._broadcast(createTutorialStartMessage(this.matchState));
+      if (this.onTutorialStarted) this.onTutorialStarted(this.matchState);
+      return;
+    }
+    startMatch(this.matchState);
+    this._broadcast(createStartMatchMessage(this.matchState));
+    if (this.onMatchStarted) this.onMatchStarted(this.matchState);
+    this._startLoop();
+  }
+
+  // Called when the Host's own local player marks themselves ready during Tutorial Mode.
+  hostSubmitTutorialReady() {
+    this._applyTutorialReady(this.peer.id);
+  }
+
+  // Host-only: end the practice phase immediately regardless of who's ready yet.
+  skipTutorial() {
+    if (!this.matchState || this.matchState.phase !== 'tutorial') return;
+    this._finishTutorial();
+  }
+
+  _applyTutorialReady(playerId) {
+    if (!this.matchState || this.matchState.phase !== 'tutorial') return;
+    const applied = markTutorialReady(this.matchState, playerId);
+    if (!applied) return;
+    if (isTutorialComplete(this.matchState)) {
+      this._finishTutorial();
+    } else {
+      this._broadcastState();
+    }
+  }
+
+  // Shared tutorial->active transition — reuses startMatch()/START_MATCH exactly as if this were
+  // the lobby->active transition, since ending the practice phase (whether by everyone readying up
+  // or the Host skipping) is just a delayed match start.
+  _finishTutorial() {
     startMatch(this.matchState);
     this._broadcast(createStartMatchMessage(this.matchState));
     if (this.onMatchStarted) this.onMatchStarted(this.matchState);
@@ -174,6 +225,8 @@ export class PeerHost {
       this._applyZipSolved(fromPeerId);
     } else if (message.type === MessageType.INPUT_SHOP_PURCHASE && message.playerId === fromPeerId) {
       this._applyShopPurchase(fromPeerId, message.item);
+    } else if (message.type === MessageType.INPUT_TUTORIAL_READY && message.playerId === fromPeerId) {
+      this._applyTutorialReady(fromPeerId);
     }
   }
 
@@ -205,6 +258,14 @@ export class PeerHost {
     if (this.matchState.phase === 'lobby') {
       removePlayer(this.matchState, playerId);
       this._emitLobbyUpdate();
+      return;
+    }
+
+    if (this.matchState.phase === 'tutorial') {
+      removePlayer(this.matchState, playerId);
+      // Removing a not-yet-ready player can itself complete the practice phase for everyone left.
+      if (isTutorialComplete(this.matchState)) this._finishTutorial();
+      else this._broadcastState();
       return;
     }
 

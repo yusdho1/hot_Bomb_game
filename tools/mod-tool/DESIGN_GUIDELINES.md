@@ -136,8 +136,24 @@ function mount(contentEl, onAttempt, { difficulty }) {
   return { unmount() { /* stop timers, nothing else usually needed for click-only puzzles */ } };
 }
 
-export default { id: 'yourid', titleImg: '/UI/Whatever.png', mount }; // or titleText instead of titleImg
+// tutorialText is optional — see below. Lives on the default export object itself, same as
+// titleText/titleImg (PuzzleOverlay.js reads all three the same way), not a separate named export
+// like settingsSchema (which is read by your own mount(), not by PuzzleOverlay.js).
+export default {
+  id: 'yourid',
+  titleImg: '/UI/Whatever.png', // or titleText instead of titleImg
+  tutorialText: 'One sentence telling a new player what to do.',
+  mount,
+};
 ```
+
+### `tutorialText`
+
+One sentence describing what the player does, shown in Tutorial Mode's practice loop (and the mod
+tool's debug preview) in place of the timer/streak chrome — those don't apply there since nothing
+is being timed or counted toward passing anything. Falls back to a generic line if omitted, but
+every real puzzle should have one; see the existing registry files (`Stroop.js`, `Swipe.js`,
+`WhackAMole.js`, `WordMatch.js`) for the tone to match — short, imperative, no jargon.
 
 ## Per-game settings (`settingsSchema`)
 

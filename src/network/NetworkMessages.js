@@ -1,10 +1,12 @@
 export const MessageType = Object.freeze({
   LOBBY_UPDATE: 'lobby_update',
+  TUTORIAL_START: 'tutorial_start',
   START_MATCH: 'start_match',
   STATE_UPDATE: 'state_update',
   INPUT_PUZZLE_RESULT: 'input_puzzle_result',
   INPUT_ZIP_SOLVED: 'input_zip_solved',
   INPUT_SHOP_PURCHASE: 'input_shop_purchase',
+  INPUT_TUTORIAL_READY: 'input_tutorial_ready',
   GAME_OVER: 'game_over',
   RETURN_TO_LOBBY: 'return_to_lobby',
 });
@@ -22,6 +24,8 @@ function snapshotMatchState(matchState) {
     streakCount: matchState.streakCount,
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
+    tutorialEnabled: matchState.tutorialEnabled,
+    tutorialReady: matchState.tutorialReady,
     globalTimeRemaining: matchState.globalTimeRemaining,
     matchDurationSeconds: matchState.matchDurationSeconds,
     eliminationNotice: matchState.eliminationNotice,
@@ -47,6 +51,7 @@ export function createLobbyUpdateMessage(matchState) {
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
+    tutorialEnabled: matchState.tutorialEnabled,
     winCounts: matchState.winCounts,
   };
 }
@@ -63,11 +68,20 @@ export function createReturnToLobbyMessage(matchState) {
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
+    tutorialEnabled: matchState.tutorialEnabled,
     winCounts: matchState.winCounts,
   };
 }
 
-// Host -> Clients: match has begun, transition out of the lobby.
+// Host -> Clients: the practice phase has begun instead of the real match (Tutorial Mode was on).
+// A one-time phase-transition event, same pattern as createStartMatchMessage/GAME_OVER/
+// RETURN_TO_LOBBY each having their own dedicated message.
+export function createTutorialStartMessage(matchState) {
+  return { type: MessageType.TUTORIAL_START, matchState: snapshotMatchState(matchState) };
+}
+
+// Host -> Clients: match has begun, transition out of the lobby (or out of Tutorial Mode's
+// practice phase — the tutorial->active transition reuses this exact message).
 export function createStartMatchMessage(matchState) {
   return { type: MessageType.START_MATCH, matchState: snapshotMatchState(matchState) };
 }
@@ -90,6 +104,11 @@ export function createZipSolvedMessage(playerId) {
 // Client -> Host: sender wants to spend points on one Shop item ('fuseTime' | 'throwTomato' | 'skipPass').
 export function createShopPurchaseMessage(playerId, item) {
   return { type: MessageType.INPUT_SHOP_PURCHASE, playerId, item };
+}
+
+// Client -> Host: sender is done practicing and marks themselves ready during Tutorial Mode.
+export function createTutorialReadyMessage(playerId) {
+  return { type: MessageType.INPUT_TUTORIAL_READY, playerId };
 }
 
 // Host -> Clients: global timer hit zero, match is over. points/tomatoesThrown are this round's

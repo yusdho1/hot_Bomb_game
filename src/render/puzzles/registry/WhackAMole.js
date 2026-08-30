@@ -35,16 +35,14 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   // scrollbar fallback — a fixed aspect-ratio or viewport-relative guess can't account for how
   // much room the OTHER chrome around the grid is actually taking on a given device.
   //
-  // The height budget is measured off #game-container (whose size is fully determined by CSS —
-  // viewport/aspect-ratio only, never by its own content) rather than .puzzle-panel's own
-  // clientHeight — .puzzle-panel is an auto-height flex column that only grows to fit whatever
-  // its children need, so measuring *it* is circular: a small grid keeps the panel small, which
-  // then keeps computing a small grid. Anchoring to the container sidesteps that entirely and is
-  // what lets the grid actually keep growing on a bigger desktop window instead of staying capped
-  // at whatever size it happened to start at.
-  const containerEl = contentEl.closest('#game-container');
+  // The height budget is measured off .puzzle-game-box (the framed box this content sits inside
+  // — see index.html) rather than .puzzle-content's own clientHeight, and rather than the grid
+  // itself: .puzzle-game-box's size comes from flex:1 in a page with fixed dimensions, so it's
+  // already resolved and non-circular by the time this runs, unlike measuring something that's
+  // sized by its own (about-to-be-computed) content.
+  const gameBoxEl = contentEl.closest('.puzzle-game-box');
   const containerWidth = contentEl.clientWidth || 270;
-  const availableHeight = containerEl ? containerEl.getBoundingClientRect().height * 0.4 : ROWS * 60;
+  const availableHeight = gameBoxEl ? gameBoxEl.getBoundingClientRect().height * 0.9 : window.innerHeight * 0.4;
   const widthCell = (containerWidth - GAP_PX * (COLS - 1)) / COLS;
   const heightCell = (availableHeight - GAP_PX * (ROWS - 1)) / ROWS;
   const cellPx = Math.max(MIN_CELL_PX, Math.min(MAX_CELL_PX, widthCell, heightCell));
@@ -112,5 +110,6 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 export default {
   id: 'whackamole',
   titleText: 'WHACK-A-MOLE',
+  tutorialText: 'Tap the bomb before it disappears back into its hole.',
   mount,
 };

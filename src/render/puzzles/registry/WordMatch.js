@@ -50,14 +50,17 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   let cardEls = {};
   let targetEls = {};
 
-  // Root container styling matching system guidelines. No fixed/100% height here — contentEl
-  // already carries the shared .puzzle-content class, which shrinks to fit .puzzle-panel's
-  // available space; forcing height:100% against that flex-auto-sized ancestor did nothing
-  // useful and masked the real fix (the fixed-px card heights below).
+  const GAP_PX = 10;
+
+  // .puzzle-content now fills .puzzle-game-box's real height (see index.html), so this box has
+  // genuine, non-circular geometry to measure — same idea as WhackAMole.js. The board is sized to
+  // its own content (cards sized to fit, not stretched) and centered in whatever room is left,
+  // rather than stretched to fill it — a big empty .puzzle-game-box just reads as calm page
+  // background now that it's no longer a floating popup card.
   contentEl.style.display = 'flex';
   contentEl.style.flexDirection = 'column';
-  contentEl.style.justifyContent = 'space-between';
   contentEl.style.alignItems = 'center';
+  contentEl.style.justifyContent = 'center';
   contentEl.style.padding = '10px 0';
   contentEl.style.userSelect = 'none';
   contentEl.style.touchAction = 'none';
@@ -73,13 +76,12 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   promptEl.style.textShadow = 'var(--text-outline)';
   contentEl.appendChild(promptEl);
 
-  // Puzzle board layout
+  // Puzzle board layout — natural height (sized to its cards), not stretched to fill the box.
   const boardEl = document.createElement('div');
   boardEl.style.display = 'flex';
   boardEl.style.flexDirection = 'column';
-  boardEl.style.justifyContent = 'space-between';
+  boardEl.style.gap = `${GAP_PX}px`;
   boardEl.style.width = '100%';
-  boardEl.style.flex = '1';
   boardEl.style.marginTop = '10px';
   contentEl.appendChild(boardEl);
 
@@ -89,22 +91,37 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   [topRow, bottomRow].forEach((row) => {
     row.style.display = 'grid';
     row.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
-    row.style.gap = '8px';
+    row.style.justifyItems = 'center';
+    row.style.alignItems = 'center';
+    row.style.gap = `${GAP_PX}px`;
     row.style.width = '100%';
     boardEl.appendChild(row);
   });
 
-  function baseCellStyle(el) {
-    // cqmin (container query units, scoped to #game-container) instead of vh — vh only knows the
-    // raw viewport and has no idea how big the puzzle panel itself actually ended up on a big
-    // desktop window, so cards would stay capped at a small-screen ceiling even once the panel
-    // around them had grown much larger.
-    el.style.fontSize = 'clamp(20px, 6cqmin, 52px)';
+  // Cards are square tap targets sized to fit their emoji, not stretched to fill leftover space:
+  // read the content area's real rendered geometry (width per column, and the vertical room left
+  // over once the prompt/margins/gap are subtracted — measured while the rows are still empty, so
+  // this is a real top-down budget, not circular) and take whichever of width/height is tighter,
+  // same approach as WhackAMole.js. Font-size then scales directly off that square's own size.
+  function computeCardPx() {
+    const contentRect = contentEl.getBoundingClientRect();
+    const promptRect = promptEl.getBoundingClientRect();
+    const rowWidth = topRow.getBoundingClientRect().width || contentRect.width;
+    const widthPerCard = (rowWidth - GAP_PX * (cols - 1)) / cols;
+    const verticalChrome = promptRect.height + 10 /* boardEl marginTop */ + GAP_PX /* gap between rows */;
+    const heightPerCard = (contentRect.height - verticalChrome) / 2;
+    return Math.max(36, Math.min(widthPerCard, heightPerCard || widthPerCard));
+  }
+
+  function baseCellStyle(el, cardPx) {
+    el.style.width = `${cardPx}px`;
+    el.style.height = `${cardPx}px`;
+    el.style.fontSize = `${Math.round(cardPx * 0.5)}px`;
     el.style.display = 'flex';
     el.style.alignItems = 'center';
     el.style.justifyContent = 'center';
-    el.style.height = 'clamp(36px, 10cqmin, 96px)';
     el.style.borderRadius = '12px';
+    el.style.boxSizing = 'border-box';
   }
 
   // A correct drop removes just that one pair from the board — the round only fully reshuffles
@@ -135,6 +152,10 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     cardEls = {};
     targetEls = {};
 
+    // Measured while both rows are still empty — see computeCardPx's comment above for why
+    // that's required for this to be a real (non-circular) measurement.
+    const cardPx = computeCardPx();
+
     const selectedPairs = shuffle(CONCEPT_PAIRS).slice(0, pairsPerRound);
     remainingPairIds = new Set(selectedPairs.map((_, index) => index));
 
@@ -145,7 +166,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     topItems.forEach((data) => {
       const card = document.createElement('div');
       card.textContent = data.text;
-      baseCellStyle(card);
+      baseCellStyle(card, cardPx);
       card.style.backgroundColor = 'var(--panel-bg)';
       card.style.border = '2px solid var(--accent-orange-border)';
       card.style.cursor = 'grab';
@@ -211,7 +232,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
       const target = document.createElement('div');
       target.textContent = data.text;
       target.dataset.dropPairId = data.pairId;
-      baseCellStyle(target);
+      baseCellStyle(target, cardPx);
       target.style.backgroundColor = 'var(--panel-bg)';
       target.style.border = '2px dashed var(--panel-border)';
       targetEls[data.pairId] = target;
@@ -236,5 +257,6 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 export default {
   id: 'wordmatch',
   titleText: 'EMOJI MATCH',
+  tutorialText: 'Drag each top card down onto the matching emoji below it.',
   mount,
 };

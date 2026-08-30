@@ -69,11 +69,14 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   };
 }
 
-// A registered minigame module: { id, titleImg|titleText, mount(contentEl, onAttempt, { difficulty }) => {unmount} }
+// A registered minigame module: { id, titleImg|titleText, tutorialText, mount(contentEl, onAttempt, { difficulty }) => {unmount} }
 // titleImg points at a banner image under public/UI/ (matches the other puzzles' style); use
-// titleText instead for a plain text banner if you don't have art yet.
+// titleText instead for a plain text banner if you don't have art yet. tutorialText is shown in
+// Tutorial Mode's practice loop and the mod tool's debug preview, in place of the timer/streak
+// chrome (neither applies there) — one sentence, imperative, no jargon.
 export default {
   id: '__ID__',
   titleText: '__TITLE__',
+  tutorialText: 'TODO: one sentence telling a new player what to do here.',
   mount,
 };
