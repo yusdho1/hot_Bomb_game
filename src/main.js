@@ -4,6 +4,7 @@ import { PeerClient } from './network/PeerClient.js';
 import { GameScene } from './render/GameScene.js';
 import { mountPuzzleOverlay as createPuzzleOverlay, PUZZLES } from './render/puzzles/PuzzleOverlay.js';
 import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
+import { TomatoThrow } from './render/TomatoThrow.js';
 import { SoundManager } from './render/SoundManager.js';
 import { Haptics } from './render/Haptics.js';
 import { spawnConfetti, spawnExplosionBurst } from './render/Particles.js';
@@ -52,6 +53,8 @@ const throwTomatoBtn = document.getElementById('throw-tomato-btn');
 const throwTomatoCountEl = document.getElementById('throw-tomato-count');
 const zipOverlayEl = document.getElementById('zip-overlay');
 const zipCancelBtn = document.getElementById('zip-cancel-btn');
+const tomatoThrowOverlayEl = document.getElementById('tomato-throw-overlay');
+const tomatoThrowCancelBtn = document.getElementById('tomato-throw-cancel-btn');
 const pointsBalanceEl = document.getElementById('points-balance');
 const pointsBalanceValueEl = document.getElementById('points-balance-value');
 const shopBtn = document.getElementById('shop-btn');
@@ -169,6 +172,7 @@ let puzzleHandle = null;
 let tutorialPuzzleHandle = null;
 let tutorialPuzzleIndex = 0;
 let zipHandle = null;
+let tomatoThrowHandle = null;
 let vibratedThresholds = new Set();
 let avatarCreatorHandle = null;
 let currentAvatarParts = loadSavedAvatarParts() || randomAvatarParts();
@@ -627,6 +631,7 @@ function unmountWaitingUI() {
   pointsBalanceEl.classList.add('hidden');
   closeZipPuzzle();
   closeShopModal();
+  closeTomatoThrowScreen();
 }
 
 // Shows/hides and updates the "Throw <N>" button based on the current basket count — called on
@@ -674,17 +679,47 @@ function handleZipSolved() {
 }
 
 solveZipBtn.addEventListener('click', () => openZipPuzzle());
-throwTomatoBtn.addEventListener('click', () => {
-  if (role === 'host' && host) host.hostSubmitThrowTomato();
-  else if (role === 'client' && client) client.sendThrowTomato();
-  // Optimistic: the real count comes back on the next state_update, but hiding early if this was
-  // (visibly) the last one avoids a flash of an enabled button with a stale "1" a tick too long.
-  const count = (lastMatchState?.tomatoBasket?.[localPlayerId] || 0) - 1;
-  if (count <= 0) throwTomatoBtn.classList.add('hidden');
-  else throwTomatoCountEl.textContent = count;
-});
+throwTomatoBtn.addEventListener('click', () => openTomatoThrowScreen());
 zipCancelBtn.addEventListener('click', () => {
   closeZipPuzzle();
+  mountWaitingUI(); // re-checks eligibility and shows the buttons again if still valid
+});
+
+// Swipe-up throw mini-interaction: opened by the "Throw" button instead of sending the network
+// message directly, so throwing a tomato is a real little action for the thrower rather than a
+// flat click. Each successful swipe fires the real network call immediately (onThrow) and, if the
+// basket still has more, spawns another tomato right away so throwing several in a row stays
+// fluid; running out (or hitting Cancel) closes the screen and shows the waiting buttons again.
+function openTomatoThrowScreen() {
+  solveZipBtn.classList.add('hidden');
+  throwTomatoBtn.classList.add('hidden');
+  shopBtn.classList.add('hidden');
+  tomatoThrowOverlayEl.classList.remove('hidden');
+  const initialCount = lastMatchState?.tomatoBasket?.[localPlayerId] || 0;
+  tomatoThrowHandle = TomatoThrow.mount(tomatoThrowOverlayEl, {
+    initialCount,
+    onThrow: () => {
+      if (role === 'host' && host) host.hostSubmitThrowTomato();
+      else if (role === 'client' && client) client.sendThrowTomato();
+    },
+    onClose: () => {
+      closeTomatoThrowScreen();
+      mountWaitingUI();
+    },
+  });
+  tomatoThrowOverlayEl.appendChild(tomatoThrowCancelBtn);
+}
+
+function closeTomatoThrowScreen() {
+  tomatoThrowOverlayEl.classList.add('hidden');
+  if (tomatoThrowHandle) {
+    tomatoThrowHandle.unmount();
+    tomatoThrowHandle = null;
+  }
+}
+
+tomatoThrowCancelBtn.addEventListener('click', () => {
+  closeTomatoThrowScreen();
   mountWaitingUI(); // re-checks eligibility and shows the buttons again if still valid
 });
 

@@ -128,7 +128,7 @@
       "difficultyPresets": {
         "easy": {
           "targetSizePercent": 30,
-          "pointerSpeed": 1.5,
+          "pointerSpeed": 1.8,
           "edgeMarginPercent": 10
         },
         "medium": {
@@ -137,8 +137,8 @@
           "edgeMarginPercent": 5
         },
         "hard": {
-          "targetSizePercent": 5,
-          "pointerSpeed": 1,
+          "targetSizePercent": 15,
+          "pointerSpeed": 1.2,
           "edgeMarginPercent": 2
         }
       },
