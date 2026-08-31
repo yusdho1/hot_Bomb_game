@@ -213,7 +213,10 @@
           "/UI/Avatars/Avatar__0001_Eyes2.png",
           "/UI/Avatars/Avatar__0000_Eyes3.png",
           "/UI/Avatars/eyesdead.png",
-          "/UI/Avatars/Avatar__0002_Eyes4.png"
+          "/UI/Avatars/Avatar__0002_Eyes4.png",
+          "/UI/Avatars/eyes3.png",
+          "/UI/Avatars/eyes5.png",
+          "/UI/Avatars/eyes1.png"
         ]
       },
       {
@@ -222,7 +225,10 @@
         "options": [
           "/UI/Avatars/Avatar__0005_Mouth1.png",
           "/UI/Avatars/Avatar__0004_Mouth2.png",
-          "/UI/Avatars/Avatar__0003_Mouth3.png"
+          "/UI/Avatars/Avatar__0003_Mouth3.png",
+          "/UI/Avatars/beard1.png",
+          "/UI/Avatars/beard2.png",
+          "/UI/Avatars/Mouth4.png"
         ]
       },
       {
@@ -234,7 +240,10 @@
           "/UI/Avatars/hair3.png",
           "/UI/Avatars/hair4.png",
           "/UI/Avatars/hair5.png",
-          null
+          null,
+          "/UI/Avatars/hair8.png",
+          "/UI/Avatars/hair7.png",
+          "/UI/Avatars/hair6.png"
         ]
       }
     ]
