@@ -21,8 +21,9 @@ No app to install, no account, no server costs: one player hosts, everyone else 
 3. **Host hits Start Game.** The bomb lands on a random player and the match begins.
 4. **Whoever's holding the bomb solves puzzles** — same mini-game, over and over, until they land
    enough correct answers in a row (the *streak*) to pass the bomb to the next player.
-5. **Everyone else watches and sabotages.** While you're not holding the bomb, you can solve a
-   side puzzle to throw a tomato at the current holder, or spend points in the Shop.
+5. **Everyone else watches and sabotages.** While you're not holding the bomb, earn tomatoes for
+   your basket (solve a side puzzle, or buy them) and throw them at the current holder whenever
+   you want, or spend points in the Shop.
 6. **Last player standing wins.**
 
 ## The rules
@@ -37,13 +38,16 @@ No app to install, no account, no server costs: one player hosts, everyone else 
 - **A wrong answer isn't fatal.** It just resets your streak back to 0. Your fuse keeps ticking
   either way, so don't freeze up — a miss only costs you progress, not time.
 - **Tomato sabotage** (optional, on by default). While you're waiting for your turn, solve the
-  **Snake** puzzle — trace a path connecting checkpoints 1→6 while covering every tile — to throw
-  a tomato at the current holder. It splats their screen for a moment (1–3s, host-configurable) while
-  their fuse keeps burning. One free throw per player per turn.
+  **Snake** puzzle — trace a path connecting checkpoints 1→6 while covering every tile — to earn
+  one tomato for your basket (once per turn). Tomatoes aren't thrown automatically: throw as many
+  as you've got, whenever you want, at the current holder — no puzzle or turn limit on the
+  *throwing* itself. A hit splats their screen for a moment (1–3s, host-configurable) while their
+  fuse keeps burning.
 - **Points & the Shop.** Solving Snake, or finishing a streak fast as the holder, earns you
   points. Spend them (while you're *not* holding the bomb) on:
   - **+5s Fuse Time** — extra time for your *next* turn as holder
-  - **Throw Tomato Now** — an instant sabotage throw, no puzzle required
+  - **+1 Tomato** — buy one for your basket, no puzzle required
+  - **Anti-Tomato Shield** — blocks the next 5 tomatoes thrown at you for the rest of the round
   - **Skip-Ahead Pass** — the bomb jumps straight over you next time it's your turn
 - **Last one standing wins.** Get eliminated (fuse *or* match clock runs out on you) and you're
   out for the rest of that round.

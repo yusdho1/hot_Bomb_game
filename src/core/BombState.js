@@ -72,8 +72,9 @@ export function createMatchState(
     turnNotice: null,
     turnNoticeSeq: 0,
     // Host-only bookkeeping (never included in any network snapshot): which alive non-holders
-    // have already thrown a tomato this turn. Reset whenever a new holder is assigned.
-    _zipThrownThisTurn: new Set(),
+    // have already solved their sabotage puzzle this turn. Reset whenever a new holder is
+    // assigned. Only gates *solving* — throwing an already-banked tomato isn't turn-limited.
+    _zipSolvedThisTurn: new Set(),
     // playerId -> rounds won this room session. Persists across resetToLobby (Next Round) —
     // only ever grows, never cleared, for as long as the room stays open.
     winCounts: {},
@@ -83,6 +84,13 @@ export function createMatchState(
     // playerId -> tomatoes thrown this round (free Zip-solve + paid Shop throws). Reset every
     // round like points — feeds the end-of-match stats screen, not a session-long tally.
     tomatoesThrown: {},
+    // playerId -> tomatoes currently banked, ready to throw whenever they want (not turn-gated).
+    // Earned by solving the Snake puzzle or bought outright in the Shop. Reset every round.
+    tomatoBasket: {},
+    // playerId -> remaining Anti-Tomato Shield charges (each absorbs one incoming tomato while
+    // that player is the holder, silently — no stain lands). Bought in the Shop, lasts the whole
+    // round regardless of how many turns they hold the bomb across. Reset every round.
+    shieldCharges: {},
     // playerId -> banked fuse-bonus seconds, applied and cleared the next time they become holder.
     pendingFuseBonus: {},
     // At most one player in the whole match may have a skip-ahead pass queued at a time — a
@@ -182,7 +190,7 @@ export function startMatch(matchState) {
   matchState.bombTimer = PERSONAL_TIMER_SECONDS;
   matchState.streakCount = 0;
   matchState.zipStain = null;
-  matchState._zipThrownThisTurn = new Set();
+  matchState._zipSolvedThisTurn = new Set();
 }
 
 // Returns { globalExpired, personalExpired }. No-ops outside the active phase.
@@ -231,7 +239,7 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
     }
     matchState.streakCount = 0;
     matchState.zipStain = null;
-    matchState._zipThrownThisTurn = new Set();
+    matchState._zipSolvedThisTurn = new Set();
 
     matchState.turnNoticeSeq += 1;
     matchState.turnNotice = {
@@ -282,45 +290,64 @@ export function registerPuzzleMiss(matchState, fromId) {
   return true;
 }
 
-// Pure eligibility check for throwing a tomato — shared by the free (Zip-solve) and paid (Shop)
-// throw paths so both stay subject to the exact same rules.
-function canThrowZipStain(matchState, throwerId) {
+// Pure eligibility check for attempting the Snake puzzle — once per turn (resets whenever a new
+// holder is assigned), same as the old "one free throw per turn" cadence, just for a banked
+// tomato instead of an instant throw now.
+function canSolveZipPuzzle(matchState, playerId) {
   if (matchState.phase !== 'active' || !matchState.zipEnabled) return false;
-  if (!matchState.bombHolderId || throwerId === matchState.bombHolderId) return false;
-  const thrower = matchState.players.find((p) => p.id === throwerId);
-  if (!thrower || thrower.status !== 'alive') return false;
-  if (matchState._zipThrownThisTurn.has(throwerId)) return false;
+  if (!matchState.bombHolderId || playerId === matchState.bombHolderId) return false;
+  const player = matchState.players.find((p) => p.id === playerId);
+  if (!player || player.status !== 'alive') return false;
+  if (matchState._zipSolvedThisTurn.has(playerId)) return false;
   return true;
 }
 
-// The actual throw, no points awarded — callers decide whether this earns a bonus (only solving
-// the puzzle does; paying for it via the Shop does not, since that would double-dip a player who
-// bought the effect instead of earning it).
-function applyZipThrow(matchState, throwerId) {
-  matchState._zipThrownThisTurn.add(throwerId);
-  matchState.zipStainSeq += 1;
-  matchState.zipStain = {
-    targetPlayerId: matchState.bombHolderId,
-    throwerId,
-    seq: matchState.zipStainSeq,
-  };
-  // Cumulative match-long count (unlike _zipThrownThisTurn, which resets every turn) — feeds the
-  // end-of-match "most tomatoes thrown" stat. Both the free (Zip-solve) and paid (Shop) throw
-  // paths go through here, so both count toward it.
-  matchState.tomatoesThrown[throwerId] = (matchState.tomatoesThrown[throwerId] || 0) + 1;
-}
-
-// One alive non-holder "solved" their sabotage minigame. Throws a tomato at the current holder
-// and awards the solve bonus, unless that player already threw one this turn (resets whenever a
-// new holder is assigned) or the feature is off for this match. Returns true if applied.
-export function throwZipStain(matchState, throwerId) {
-  if (!canThrowZipStain(matchState, throwerId)) return false;
-  applyZipThrow(matchState, throwerId);
-  matchState.points[throwerId] = (matchState.points[throwerId] || 0) + POINTS.zipSolveBonus;
+// One alive non-holder solved their sabotage minigame this turn — banks a tomato (instead of
+// throwing immediately, like it used to) and still awards the existing solve-bonus points on top
+// (a separate reward from the tomato itself — see "Earning Points" in the how-to-play copy).
+// Once per turn. Returns true if applied.
+export function solveZipPuzzle(matchState, playerId) {
+  if (!canSolveZipPuzzle(matchState, playerId)) return false;
+  matchState._zipSolvedThisTurn.add(playerId);
+  matchState.tomatoBasket[playerId] = (matchState.tomatoBasket[playerId] || 0) + 1;
+  matchState.points[playerId] = (matchState.points[playerId] || 0) + POINTS.zipSolveBonus;
   return true;
 }
 
-// Spends a player's points on one of the three Shop items. Validates affordability and every
+// Pure eligibility check for throwing a banked tomato. Unlike solving, this is NOT turn-gated —
+// throw as many as you've got, whenever you want, as long as you're alive, not the holder, and
+// actually have one in your basket.
+function canThrowTomato(matchState, playerId) {
+  if (matchState.phase !== 'active' || !matchState.zipEnabled) return false;
+  if (!matchState.bombHolderId || playerId === matchState.bombHolderId) return false;
+  const player = matchState.players.find((p) => p.id === playerId);
+  if (!player || player.status !== 'alive') return false;
+  if (!(matchState.tomatoBasket[playerId] > 0)) return false;
+  return true;
+}
+
+// Spends one banked tomato (earned via solveZipPuzzle or bought in the Shop). If the current
+// holder still has active Anti-Tomato Shield charges, the throw is silently absorbed — one
+// charge is consumed instead of a stain landing. Always counts toward the thrower's
+// tomatoesThrown stat regardless of whether it actually landed (they did throw it). Returns true
+// if applied.
+export function throwTomatoFromBasket(matchState, playerId) {
+  if (!canThrowTomato(matchState, playerId)) return false;
+
+  matchState.tomatoBasket[playerId] -= 1;
+  matchState.tomatoesThrown[playerId] = (matchState.tomatoesThrown[playerId] || 0) + 1;
+
+  const holderId = matchState.bombHolderId;
+  if (matchState.shieldCharges[holderId] > 0) {
+    matchState.shieldCharges[holderId] -= 1;
+  } else {
+    matchState.zipStainSeq += 1;
+    matchState.zipStain = { targetPlayerId: holderId, throwerId: playerId, seq: matchState.zipStainSeq };
+  }
+  return true;
+}
+
+// Spends a player's points on one of the Shop items. Validates affordability and every
 // item-specific precondition BEFORE deducting, so there's never a "deducted but nothing
 // happened" state that would need a refund path. Returns true if applied.
 export function purchaseShopItem(matchState, playerId, item) {
@@ -341,9 +368,17 @@ export function purchaseShopItem(matchState, playerId, item) {
   }
 
   if (item === 'throwTomato') {
-    if (!canThrowZipStain(matchState, playerId)) return false;
+    if (!matchState.zipEnabled) return false;
     matchState.points[playerId] = balance - price;
-    applyZipThrow(matchState, playerId); // paid for — no solve bonus on top
+    matchState.tomatoBasket[playerId] = (matchState.tomatoBasket[playerId] || 0) + 1;
+    return true;
+  }
+
+  if (item === 'antiTomatoShield') {
+    if (!matchState.zipEnabled) return false;
+    if (matchState.shieldCharges[playerId] > 0) return false; // deplete the current one before buying another
+    matchState.points[playerId] = balance - price;
+    matchState.shieldCharges[playerId] = POINTS.antiTomatoShieldCharges;
     return true;
   }
 
@@ -371,9 +406,11 @@ export function resetToLobby(matchState) {
   matchState.globalTimeRemaining = matchState.matchDurationSeconds;
   matchState.eliminationNotice = null;
   matchState.zipStain = null;
-  matchState._zipThrownThisTurn = new Set();
+  matchState._zipSolvedThisTurn = new Set();
   matchState.points = {};
   matchState.tomatoesThrown = {};
+  matchState.tomatoBasket = {};
+  matchState.shieldCharges = {};
   matchState.pendingFuseBonus = {};
   matchState.pendingSkipPass = null;
   matchState.turnNotice = null;

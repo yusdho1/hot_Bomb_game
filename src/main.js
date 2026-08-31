@@ -47,7 +47,9 @@ const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
 const turnNoticeToastEl = document.getElementById('turn-notice-toast');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
+const solveZipBtn = document.getElementById('solve-zip-btn');
 const throwTomatoBtn = document.getElementById('throw-tomato-btn');
+const throwTomatoCountEl = document.getElementById('throw-tomato-count');
 const zipOverlayEl = document.getElementById('zip-overlay');
 const zipCancelBtn = document.getElementById('zip-cancel-btn');
 const pointsBalanceEl = document.getElementById('points-balance');
@@ -57,9 +59,11 @@ const shopOverlayEl = document.getElementById('shop-overlay');
 const shopCancelBtn = document.getElementById('shop-cancel-btn');
 const shopBalanceValueEl = document.getElementById('shop-balance-value');
 const shopFuseSecondsEl = document.getElementById('shop-fuse-seconds');
+const shopShieldChargesEl = document.getElementById('shop-shield-charges');
 const shopBuyBtns = {
   fuseTime: document.getElementById('shop-buy-fuseTime'),
   throwTomato: document.getElementById('shop-buy-throwTomato'),
+  antiTomatoShield: document.getElementById('shop-buy-antiTomatoShield'),
   skipPass: document.getElementById('shop-buy-skipPass'),
 };
 const gameOverPanelEl = document.getElementById('game-over-panel');
@@ -126,7 +130,7 @@ const HOW_TO_PLAY_PAGES = [
   {
     icon: '/UI/Sprites/Tomato_Stain.png',
     title: 'Snake Sabotage',
-    text: "While you wait for your turn, solve the Snake puzzle to throw a tomato at whoever's holding the bomb!",
+    text: "While you wait for your turn, solve the Snake puzzle (once per turn) to earn a tomato for your basket. Throw them at whoever's holding the bomb whenever you want, as many as you've got!",
   },
   {
     icon: '/UI/Sprites/IconCoinGold.png',
@@ -136,7 +140,7 @@ const HOW_TO_PLAY_PAGES = [
   {
     icon: '/UI/Sprites/IconShop.png',
     title: 'The Shop',
-    text: "While you wait for your turn, spend points on extra fuse time for your next turn, an instant tomato throw, or a skip-ahead pass.",
+    text: "While you wait for your turn, spend points on extra fuse time for your next turn, more tomatoes for your basket, an Anti-Tomato Shield, or a skip-ahead pass.",
   },
   {
     icon: '/UI/Sprites/Sheild.png',
@@ -442,6 +446,7 @@ function applyMatchState(matchState) {
 
   if (!pointsBalanceEl.classList.contains('hidden')) updatePointsBalanceChip(matchState);
   if (!shopOverlayEl.classList.contains('hidden')) updateShopModal(matchState);
+  updateThrowTomatoButton(matchState);
 
   if (puzzleHandle) {
     puzzleHandle.updateTimer(matchState.bombTimer);
@@ -593,9 +598,14 @@ function submitPuzzleResult(success) {
   else if (role === 'client' && client) client.sendPuzzleResult(success);
 }
 
-// --- Waiting-player actions: Zip sabotage minigame + Shop (alive non-holders only) ---
-// Opt-in: becoming a spectator just reveals the "Throw Tomato" / "Shop" buttons, never a puzzle
-// or modal outright — those only open once the player actually taps in, and can be backed out of.
+// --- Waiting-player actions: Zip sabotage minigame + tomato basket + Shop (alive non-holders
+// only) --- Opt-in: becoming a spectator just reveals the action buttons, never a puzzle or modal
+// outright — those only open once the player actually taps in, and can be backed out of.
+//
+// Two separate tomato actions: "Earn Tomato" opens the Snake puzzle (once per turn, same cadence
+// the old instant-throw had — solving banks one tomato instead of throwing it immediately).
+// "Throw" spends one banked tomato at the current holder — NOT turn-gated, so it stays visible
+// and clickable as many times as the basket allows, any time they're not holding the bomb.
 
 function mountWaitingUI() {
   if (!lastMatchState || lastMatchState.phase !== 'active') return;
@@ -603,13 +613,15 @@ function mountWaitingUI() {
   if (!me || me.status !== 'alive') return;
   if (lastMatchState.bombHolderId === localPlayerId) return;
 
-  if (lastMatchState.zipEnabled) throwTomatoBtn.classList.remove('hidden');
+  if (lastMatchState.zipEnabled) solveZipBtn.classList.remove('hidden');
   shopBtn.classList.remove('hidden');
   pointsBalanceEl.classList.remove('hidden');
   updatePointsBalanceChip(lastMatchState);
+  updateThrowTomatoButton(lastMatchState);
 }
 
 function unmountWaitingUI() {
+  solveZipBtn.classList.add('hidden');
   throwTomatoBtn.classList.add('hidden');
   shopBtn.classList.add('hidden');
   pointsBalanceEl.classList.add('hidden');
@@ -617,7 +629,25 @@ function unmountWaitingUI() {
   closeShopModal();
 }
 
+// Shows/hides and updates the "Throw <N>" button based on the current basket count — called on
+// mount and on every subsequent state_update while waiting, so it reacts live to solving the
+// puzzle, buying a tomato in the Shop, or spending the basket down to 0.
+function updateThrowTomatoButton(matchState) {
+  if (!matchState || matchState.phase !== 'active') return;
+  const me = matchState.players.find((p) => p.id === localPlayerId);
+  if (!me || me.status !== 'alive' || matchState.bombHolderId === localPlayerId) return;
+
+  const count = matchState.tomatoBasket?.[localPlayerId] || 0;
+  if (matchState.zipEnabled && count > 0) {
+    throwTomatoBtn.classList.remove('hidden');
+    throwTomatoCountEl.textContent = count;
+  } else {
+    throwTomatoBtn.classList.add('hidden');
+  }
+}
+
 function openZipPuzzle() {
+  solveZipBtn.classList.add('hidden');
   throwTomatoBtn.classList.add('hidden');
   shopBtn.classList.add('hidden');
   zipOverlayEl.classList.remove('hidden');
@@ -637,12 +667,22 @@ function handleZipSolved() {
   if (role === 'host' && host) host.hostSubmitZipSolved();
   else if (role === 'client' && client) client.sendZipSolved();
   closeZipPuzzle();
-  // Already thrown this turn, so throwTomatoBtn stays hidden until the next one — but they can
-  // still visit the Shop in the meantime.
+  // Already solved this turn, so solveZipBtn stays hidden until the next one — but they can
+  // still throw what they've banked, or visit the Shop, in the meantime.
   shopBtn.classList.remove('hidden');
+  if (lastMatchState) updateThrowTomatoButton(lastMatchState);
 }
 
-throwTomatoBtn.addEventListener('click', () => openZipPuzzle());
+solveZipBtn.addEventListener('click', () => openZipPuzzle());
+throwTomatoBtn.addEventListener('click', () => {
+  if (role === 'host' && host) host.hostSubmitThrowTomato();
+  else if (role === 'client' && client) client.sendThrowTomato();
+  // Optimistic: the real count comes back on the next state_update, but hiding early if this was
+  // (visibly) the last one avoids a flash of an enabled button with a stale "1" a tick too long.
+  const count = (lastMatchState?.tomatoBasket?.[localPlayerId] || 0) - 1;
+  if (count <= 0) throwTomatoBtn.classList.add('hidden');
+  else throwTomatoCountEl.textContent = count;
+});
 zipCancelBtn.addEventListener('click', () => {
   closeZipPuzzle();
   mountWaitingUI(); // re-checks eligibility and shows the buttons again if still valid
@@ -651,11 +691,13 @@ zipCancelBtn.addEventListener('click', () => {
 // --- Shop ---
 
 function openShopModal() {
+  solveZipBtn.classList.add('hidden');
   throwTomatoBtn.classList.add('hidden');
   shopBtn.classList.add('hidden');
   shopOverlayEl.classList.remove('hidden');
   shopFuseSecondsEl.textContent = gameConfig.settings.points.fuseBonusSeconds;
-  ['fuseTime', 'throwTomato', 'skipPass'].forEach((item) => {
+  shopShieldChargesEl.textContent = gameConfig.settings.points.antiTomatoShieldCharges;
+  ['fuseTime', 'throwTomato', 'antiTomatoShield', 'skipPass'].forEach((item) => {
     document.getElementById(`shop-price-${item}`).textContent = gameConfig.settings.points.prices[item];
   });
   if (lastMatchState) updateShopModal(lastMatchState);
@@ -692,10 +734,12 @@ function updateShopModal(matchState) {
   const isHolder = matchState.bombHolderId === localPlayerId;
   const hasFuseBonus = !!matchState.pendingFuseBonus?.[localPlayerId];
   const hasSkipPending = !!matchState.pendingSkipPass;
-  const canThrow = matchState.zipEnabled && !isHolder && !!matchState.bombHolderId;
+  const hasActiveShield = !!matchState.shieldCharges?.[localPlayerId];
 
   shopBuyBtns.fuseTime.disabled = isHolder || hasFuseBonus || balance < prices.fuseTime;
-  shopBuyBtns.throwTomato.disabled = isHolder || !canThrow || balance < prices.throwTomato;
+  shopBuyBtns.antiTomatoShield.disabled =
+    isHolder || !matchState.zipEnabled || hasActiveShield || balance < prices.antiTomatoShield;
+  shopBuyBtns.throwTomato.disabled = isHolder || !matchState.zipEnabled || balance < prices.throwTomato;
   shopBuyBtns.skipPass.disabled = isHolder || hasSkipPending || balance < prices.skipPass;
 }
 

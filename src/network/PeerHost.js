@@ -18,7 +18,8 @@ import {
   eliminateCurrentHolder,
   resolvePuzzleSuccess,
   registerPuzzleMiss,
-  throwZipStain,
+  solveZipPuzzle,
+  throwTomatoFromBasket,
   purchaseShopItem,
   countAlivePlayers,
   endMatch,
@@ -199,6 +200,11 @@ export class PeerHost {
     this._applyZipSolved(this.peer.id);
   }
 
+  // Called when the Host's own local player throws a banked tomato.
+  hostSubmitThrowTomato() {
+    this._applyThrowTomato(this.peer.id);
+  }
+
   // Called when the Host's own local player buys a Shop item.
   hostSubmitShopPurchase(item) {
     this._applyShopPurchase(this.peer.id, item);
@@ -223,6 +229,8 @@ export class PeerHost {
       this._applyPuzzleResult(fromPeerId, message.success);
     } else if (message.type === MessageType.INPUT_ZIP_SOLVED && message.playerId === fromPeerId) {
       this._applyZipSolved(fromPeerId);
+    } else if (message.type === MessageType.INPUT_THROW_TOMATO && message.playerId === fromPeerId) {
+      this._applyThrowTomato(fromPeerId);
     } else if (message.type === MessageType.INPUT_SHOP_PURCHASE && message.playerId === fromPeerId) {
       this._applyShopPurchase(fromPeerId, message.item);
     } else if (message.type === MessageType.INPUT_TUTORIAL_READY && message.playerId === fromPeerId) {
@@ -232,7 +240,13 @@ export class PeerHost {
 
   _applyZipSolved(playerId) {
     if (!this.matchState || this.matchState.phase !== 'active') return;
-    const applied = throwZipStain(this.matchState, playerId);
+    const applied = solveZipPuzzle(this.matchState, playerId);
+    if (applied) this._broadcastState();
+  }
+
+  _applyThrowTomato(playerId) {
+    if (!this.matchState || this.matchState.phase !== 'active') return;
+    const applied = throwTomatoFromBasket(this.matchState, playerId);
     if (applied) this._broadcastState();
   }
 

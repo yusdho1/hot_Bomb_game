@@ -3,6 +3,7 @@ import {
   MessageType,
   createPuzzleResultMessage,
   createZipSolvedMessage,
+  createThrowTomatoMessage,
   createShopPurchaseMessage,
   createTutorialReadyMessage,
   isValidMessage,
@@ -62,6 +63,12 @@ export class PeerClient {
   sendZipSolved() {
     if (this.conn && this.conn.open) {
       this.conn.send(createZipSolvedMessage(this.peer.id));
+    }
+  }
+
+  sendThrowTomato() {
+    if (this.conn && this.conn.open) {
+      this.conn.send(createThrowTomatoMessage(this.peer.id));
     }
   }
 

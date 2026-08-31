@@ -26,10 +26,12 @@
       "perSecondRemaining": 5,
       "zipSolveBonus": 15,
       "fuseBonusSeconds": 5,
+      "antiTomatoShieldCharges": 5,
       "prices": {
         "fuseTime": 40,
         "throwTomato": 25,
-        "skipPass": 80
+        "skipPass": 80,
+        "antiTomatoShield": 100
       }
     }
   },

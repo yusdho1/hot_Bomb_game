@@ -695,9 +695,13 @@
         bottom: 18px;
         transform: translateX(-50%);
         display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
         gap: 10px;
+        width: 94%;
         z-index: 8;
       }
+      #solve-zip-btn,
       #throw-tomato-btn,
       #shop-btn {
         display: flex;
@@ -714,20 +718,24 @@
         cursor: pointer;
         box-shadow: 0 4px 0 var(--accent-orange-border), 0 6px 14px rgba(0, 0, 0, 0.35);
       }
+      #solve-zip-btn img,
       #throw-tomato-btn img,
       #shop-btn img {
         width: 22px;
         height: 22px;
         object-fit: contain;
       }
+      #solve-zip-btn:hover,
       #throw-tomato-btn:hover,
       #shop-btn:hover {
         filter: brightness(1.08);
       }
+      #solve-zip-btn:active,
       #throw-tomato-btn:active,
       #shop-btn:active {
         transform: translateY(2px);
       }
+      #solve-zip-btn,
       #throw-tomato-btn {
         animation: tomato-btn-pulse 1.6s ease-in-out infinite;
       }
@@ -1772,9 +1780,13 @@
       </div>
 
       <div id="waiting-actions-row">
+        <button id="solve-zip-btn" type="button" class="hidden">
+          <img src="/UI/Sprites/Tomato_Stain.png" alt="" />
+          Earn Tomato
+        </button>
         <button id="throw-tomato-btn" type="button" class="hidden">
           <img src="/UI/Sprites/Tomato_Stain.png" alt="" />
-          Throw Tomato
+          Throw <span id="throw-tomato-count"></span>
         </button>
         <button id="shop-btn" type="button" class="hidden">
           <img src="/UI/Sprites/IconShop.png" alt="" />
@@ -1805,10 +1817,18 @@
             </button>
             <button class="shop-item-btn" id="shop-buy-throwTomato" data-item="throwTomato" type="button">
               <span class="shop-item-icon">🍅</span>
-              <span class="shop-item-label">Throw Tomato Now</span>
+              <span class="shop-item-label">+1 Tomato<br /><small>for your basket</small></span>
               <span class="shop-item-price">
                 <img src="/UI/Sprites/IconCoinGold.png" alt="" />
                 <span id="shop-price-throwTomato"></span>
+              </span>
+            </button>
+            <button class="shop-item-btn" id="shop-buy-antiTomatoShield" data-item="antiTomatoShield" type="button">
+              <span class="shop-item-icon">🛡️</span>
+              <span class="shop-item-label">Anti-Tomato Shield<br /><small>blocks your next <span id="shop-shield-charges"></span> tomatoes this round</small></span>
+              <span class="shop-item-price">
+                <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+                <span id="shop-price-antiTomatoShield"></span>
               </span>
             </button>
             <button class="shop-item-btn" id="shop-buy-skipPass" data-item="skipPass" type="button">

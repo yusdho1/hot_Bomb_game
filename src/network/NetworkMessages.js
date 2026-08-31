@@ -5,6 +5,7 @@ export const MessageType = Object.freeze({
   STATE_UPDATE: 'state_update',
   INPUT_PUZZLE_RESULT: 'input_puzzle_result',
   INPUT_ZIP_SOLVED: 'input_zip_solved',
+  INPUT_THROW_TOMATO: 'input_throw_tomato',
   INPUT_SHOP_PURCHASE: 'input_shop_purchase',
   INPUT_TUTORIAL_READY: 'input_tutorial_ready',
   GAME_OVER: 'game_over',
@@ -36,6 +37,8 @@ function snapshotMatchState(matchState) {
     winCounts: matchState.winCounts,
     points: matchState.points,
     tomatoesThrown: matchState.tomatoesThrown,
+    tomatoBasket: matchState.tomatoBasket,
+    shieldCharges: matchState.shieldCharges,
     pendingFuseBonus: matchState.pendingFuseBonus,
     pendingSkipPass: matchState.pendingSkipPass,
   };
@@ -96,12 +99,20 @@ export function createPuzzleResultMessage(playerId, success) {
   return { type: MessageType.INPUT_PUZZLE_RESULT, playerId, success };
 }
 
-// Client -> Host: sender just solved their background sabotage (Zip) puzzle.
+// Client -> Host: sender just solved their background sabotage (Zip) puzzle — banks a tomato,
+// doesn't throw one directly (see createThrowTomatoMessage for the actual throw).
 export function createZipSolvedMessage(playerId) {
   return { type: MessageType.INPUT_ZIP_SOLVED, playerId };
 }
 
-// Client -> Host: sender wants to spend points on one Shop item ('fuseTime' | 'throwTomato' | 'skipPass').
+// Client -> Host: sender wants to throw one tomato from their banked basket at the current
+// holder. Not turn-gated — can be sent repeatedly as long as the basket has any left.
+export function createThrowTomatoMessage(playerId) {
+  return { type: MessageType.INPUT_THROW_TOMATO, playerId };
+}
+
+// Client -> Host: sender wants to spend points on one Shop item
+// ('fuseTime' | 'throwTomato' | 'antiTomatoShield' | 'skipPass').
 export function createShopPurchaseMessage(playerId, item) {
   return { type: MessageType.INPUT_SHOP_PURCHASE, playerId, item };
 }
