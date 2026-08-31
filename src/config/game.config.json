@@ -124,10 +124,25 @@
     },
     "reflexrunner": {
       "difficultyPresets": {
-        "easy": {},
-        "medium": {},
-        "hard": {}
-      }
+        "easy": {
+          "targetSizePercent": 30,
+          "pointerSpeed": 1.5,
+          "edgeMarginPercent": 10
+        },
+        "medium": {
+          "targetSizePercent": 20,
+          "pointerSpeed": 1.5,
+          "edgeMarginPercent": 5
+        },
+        "hard": {
+          "targetSizePercent": 5,
+          "pointerSpeed": 1,
+          "edgeMarginPercent": 2
+        }
+      },
+      "targetSizePercent": 20,
+      "pointerSpeed": 1.5,
+      "edgeMarginPercent": 5
     }
   },
   "sounds": {

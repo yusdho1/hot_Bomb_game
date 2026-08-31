@@ -3,14 +3,12 @@ import { readPuzzleSettings } from '../puzzleSettings.js';
 export const settingsSchema = [
   { key: 'targetSizePercent', label: 'Green zone size (%)', type: 'number', default: 20 },
   { key: 'pointerSpeed', label: 'Pointer speed (duration in sec)', type: 'number', default: 1.5 },
-  { key: 'requiredStreak', label: 'Success streak needed', type: 'number', default: 3 },
   { key: 'edgeMarginPercent', label: 'Edge margin (%)', type: 'number', default: 5 },
 ];
 
 function mount(contentEl, onAttempt, { difficulty } = {}) {
   const settings = readPuzzleSettings('reflexrunner', settingsSchema, difficulty);
   let destroyed = false;
-  let currentStreak = 0;
   let animFrameId = null;
 
   // Pointer position tracking (0 to 1)
@@ -24,13 +22,12 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 
   const targetSize = Math.max(1, Math.min(90, settings.targetSizePercent)) / 100;
   const edgeMargin = Math.max(0, Math.min(40, settings.edgeMarginPercent)) / 100;
-  const targetStreak = Math.max(1, settings.requiredStreak);
   const speed = Math.max(0.2, settings.pointerSpeed);
 
   // UI Setup
   const promptEl = document.createElement('div');
   promptEl.className = 'puzzle-prompt';
-  promptEl.textContent = `STOP IN GREEN! (${currentStreak}/${targetStreak})`;
+  promptEl.textContent = 'STOP IN GREEN!';
 
   const trackContainer = document.createElement('div');
   trackContainer.style.position = 'relative';
@@ -116,26 +113,16 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     animFrameId = requestAnimationFrame(updateAnimation);
   }
 
+  // One stop = one attempt reported immediately, win or lose — the "how many in a row to pass"
+  // streak is the shared host-configured Streak Target (see PuzzleOverlay.js/BombState.js),
+  // already tracked by the fuse-timer chrome. This puzzle just answers true/false per attempt,
+  // the same as Stroop/Swipe/WhackAMole.
   function handleStop() {
     if (destroyed) return;
 
     const isHit = pointerPos >= greenStart && pointerPos <= greenEnd;
-
-    if (isHit) {
-      currentStreak++;
-      promptEl.textContent = `STOP IN GREEN! (${currentStreak}/${targetStreak})`;
-
-      if (currentStreak >= targetStreak) {
-        onAttempt(true);
-      } else {
-        resetGreenZone();
-      }
-    } else {
-      currentStreak = 0;
-      promptEl.textContent = `STOP IN GREEN! (${currentStreak}/${targetStreak})`;
-      onAttempt(false);
-      resetGreenZone();
-    }
+    onAttempt(isHit);
+    resetGreenZone();
   }
 
   resetGreenZone();
@@ -153,7 +140,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 
 export default {
   id: 'reflexrunner',
-  titleText: 'REFLEX RUNNER',
+  titleImg: '/UI/REFLEX RUNNER.png',
   tutorialText: 'Tap the button when the moving marker is inside the green zone!',
   mount,
 };

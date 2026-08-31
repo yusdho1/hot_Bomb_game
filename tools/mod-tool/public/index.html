@@ -43,7 +43,21 @@
         </div>
         <p class="hint">This writes <code>src/render/puzzles/registry/&lt;Id&gt;.js</code> from a working example
           template — open it and replace the placeholder logic with your own idea, following the
-          <a href="/design-guidelines" target="_blank" rel="noopener">Design Guidelines</a>.</p>
+          <a href="/design-guidelines" target="_blank" rel="noopener">Design Guidelines</a>.
+          If you enter a banner title, its title banner PNG (styled like the existing Stroop/Swipe
+          ones) is generated automatically and wired up as <code>titleImg</code>.</p>
+
+        <h3>Title banner generator</h3>
+        <p class="hint">Renders a title PNG in the same chunky yellow/orange style as the existing
+          minigame banners, straight from <code>public/UI/Ui Text File.psd</code>'s title layer
+          effects — no Photoshop needed. Use this to regenerate an existing banner, or to make one
+          for a game you scaffolded without a title. Saves to
+          <code>public/UI/&lt;text you typed&gt;.png</code>.</p>
+        <div class="add-row">
+          <input id="title-gen-text" placeholder="Title text (e.g. QUICK MATH)" />
+          <button id="title-gen-btn">Generate PNG</button>
+        </div>
+        <div id="title-gen-preview"></div>
 
         <h3>Per-game settings</h3>
         <p class="hint">Only minigames that export a <code>settingsSchema</code> show up here — see the Design

@@ -109,7 +109,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 // See tools/mod-tool/README.md for the full contract this must satisfy.
 export default {
   id: 'whackamole',
-  titleText: 'WHACK-A-MOLE',
+  titleImg: '/UI/WHACK-A-MOLE.png',
   tutorialText: 'Tap the bomb before it disappears back into its hole.',
   mount,
 };

@@ -1,4 +1,5 @@
 import { readPuzzleSettings } from '../puzzleSettings.js';
+import { SoundManager } from '../../SoundManager.js';
 
 // 20 paired emoji concepts. Deliberately real emoji (not text) — a project-owner-approved,
 // narrow exception to the "no raw emoji" rule documented in ../../../tools/mod-tool/
@@ -39,10 +40,11 @@ function shuffle(array) {
   return arr;
 }
 
-function mount(contentEl, onAttempt, { difficulty } = {}) {
+function mount(contentEl, onAttempt, { difficulty, streakTarget } = {}) {
   const settings = readPuzzleSettings('wordmatch', settingsSchema, difficulty);
   const pairsPerRound = Math.max(2, settings.pairsPerRound);
   const cols = Math.min(pairsPerRound, 4);
+  const passCount = Math.max(1, streakTarget || 3);
 
   let destroyed = false;
   let activePointer = null;
@@ -131,14 +133,25 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   // A correct drop removes just that one pair from the board — the round only fully reshuffles
   // (nextRound()) once every pair currently shown has been matched, instead of discarding the
   // rest of the board on the very first attempt.
+  //
+  // Passing the bomb requires clearing every pair in the round, not just landing streakTarget
+  // individual matches in a row (which could — and did — pass the bomb mid-board on an easy
+  // 2-pair round while leaving the rest of a 6-pair hard round unsolved). So an individual match
+  // doesn't call onAttempt at all; only finishing the whole board does, firing onAttempt(true)
+  // passCount times in a row to satisfy the shared streak-to-pass counter in one shot.
   function resolveMatch(pairId) {
     cardEls[pairId]?.remove();
     targetEls[pairId]?.remove();
     delete cardEls[pairId];
     delete targetEls[pairId];
     remainingPairIds.delete(pairId);
-    onAttempt(true);
-    if (remainingPairIds.size === 0) nextRound();
+    // Immediate positive feedback per pair, played directly rather than through onAttempt (which
+    // would prematurely advance the shared streak-to-pass counter — see the note above).
+    SoundManager.playSmallSuccess();
+    if (remainingPairIds.size === 0) {
+      for (let i = 0; i < passCount; i++) onAttempt(true);
+      nextRound();
+    }
   }
 
   function handleWrongAttempt() {
@@ -146,6 +159,78 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     onAttempt(false);
     // Board stays as-is — the dragged card already snapped back to its start position in
     // handlePointerEnd, so the player just retries against the same set.
+  }
+
+  // Every card is both draggable AND a valid drop target (data-drop-pair-id), so the player can
+  // drag either direction — a top card down onto its bottom match, or a bottom card up onto its
+  // top match. The two rows only differ visually (solid vs dashed border, purely a "these are the
+  // two groups" cue) — behaviorally there's no source/target distinction any more.
+  function createCard(text, pairId, cardPx, dashed) {
+    const card = document.createElement('div');
+    card.textContent = text;
+    card.dataset.dropPairId = pairId;
+    baseCellStyle(card, cardPx);
+    card.style.backgroundColor = 'var(--panel-bg)';
+    card.style.border = dashed ? '2px dashed var(--panel-border)' : '2px solid var(--accent-orange-border)';
+    card.style.cursor = 'grab';
+    card.style.position = 'relative';
+    card.style.zIndex = '1';
+
+    card.addEventListener('pointerdown', (e) => {
+      if (activePointer) return;
+      activePointer = {
+        pointerId: e.pointerId,
+        pairId,
+        card,
+        startX: e.clientX,
+        startY: e.clientY,
+      };
+
+      // Pointer capture prevents loss of dragging events on fast mouse movements
+      card.setPointerCapture(e.pointerId);
+      card.style.zIndex = '10';
+      card.style.opacity = '0.8';
+    });
+
+    card.addEventListener('pointermove', (e) => {
+      if (!activePointer || activePointer.pointerId !== e.pointerId) return;
+      const dx = e.clientX - activePointer.startX;
+      const dy = e.clientY - activePointer.startY;
+      card.style.transform = `translate(${dx}px, ${dy}px)`;
+    });
+
+    const handlePointerEnd = (e) => {
+      if (!activePointer || activePointer.pointerId !== e.pointerId) return;
+
+      const draggedCard = activePointer.card;
+      draggedCard.releasePointerCapture(e.pointerId);
+      draggedCard.style.transform = 'translate(0px, 0px)';
+      draggedCard.style.opacity = '1';
+      draggedCard.style.zIndex = '1';
+
+      // Find drop target under current pointer location
+      draggedCard.style.pointerEvents = 'none';
+      const targetEl = document.elementFromPoint(e.clientX, e.clientY);
+      draggedCard.style.pointerEvents = 'auto';
+
+      const dropZone = targetEl ? targetEl.closest('[data-drop-pair-id]') : null;
+      const draggedPairId = activePointer.pairId;
+      activePointer = null;
+
+      // dropZone !== draggedCard guards against a card releasing over itself (it's now a drop
+      // target too, unlike before when only the bottom row carried data-drop-pair-id) — same
+      // pairId as itself would otherwise read as a false "match".
+      if (dropZone && dropZone !== draggedCard) {
+        const targetPairId = parseInt(dropZone.dataset.dropPairId, 10);
+        if (draggedPairId === targetPairId) resolveMatch(draggedPairId);
+        else handleWrongAttempt();
+      }
+    };
+
+    card.addEventListener('pointerup', handlePointerEnd);
+    card.addEventListener('pointercancel', handlePointerEnd);
+
+    return card;
   }
 
   function nextRound() {
@@ -166,82 +251,16 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     const topItems = selectedPairs.map((pair, index) => ({ text: pair.a, pairId: index }));
     const bottomItems = shuffle(selectedPairs.map((pair, index) => ({ text: pair.b, pairId: index })));
 
-    // Create Top Row items (Draggable cards using Pointer Events)
     topItems.forEach((data) => {
-      const card = document.createElement('div');
-      card.textContent = data.text;
-      baseCellStyle(card, cardPx);
-      card.style.backgroundColor = 'var(--panel-bg)';
-      card.style.border = '2px solid var(--accent-orange-border)';
-      card.style.cursor = 'grab';
-      card.style.position = 'relative';
-      card.style.zIndex = '1';
+      const card = createCard(data.text, data.pairId, cardPx, false);
       cardEls[data.pairId] = card;
-
-      card.addEventListener('pointerdown', (e) => {
-        if (activePointer) return;
-        activePointer = {
-          pointerId: e.pointerId,
-          pairId: data.pairId,
-          card,
-          startX: e.clientX,
-          startY: e.clientY,
-        };
-
-        // Pointer capture prevents loss of dragging events on fast mouse movements
-        card.setPointerCapture(e.pointerId);
-        card.style.zIndex = '10';
-        card.style.opacity = '0.8';
-      });
-
-      card.addEventListener('pointermove', (e) => {
-        if (!activePointer || activePointer.pointerId !== e.pointerId) return;
-        const dx = e.clientX - activePointer.startX;
-        const dy = e.clientY - activePointer.startY;
-        card.style.transform = `translate(${dx}px, ${dy}px)`;
-      });
-
-      const handlePointerEnd = (e) => {
-        if (!activePointer || activePointer.pointerId !== e.pointerId) return;
-
-        card.releasePointerCapture(e.pointerId);
-        card.style.transform = 'translate(0px, 0px)';
-        card.style.opacity = '1';
-        card.style.zIndex = '1';
-
-        // Find drop target under current pointer location
-        card.style.pointerEvents = 'none';
-        const targetEl = document.elementFromPoint(e.clientX, e.clientY);
-        card.style.pointerEvents = 'auto';
-
-        const dropZone = targetEl ? targetEl.closest('[data-drop-pair-id]') : null;
-        const draggedPairId = activePointer.pairId;
-        activePointer = null;
-
-        if (dropZone) {
-          const targetPairId = parseInt(dropZone.dataset.dropPairId, 10);
-          if (draggedPairId === targetPairId) resolveMatch(draggedPairId);
-          else handleWrongAttempt();
-        }
-      };
-
-      card.addEventListener('pointerup', handlePointerEnd);
-      card.addEventListener('pointercancel', handlePointerEnd);
-
       topRow.appendChild(card);
     });
 
-    // Create Bottom Row items (Drop targets)
     bottomItems.forEach((data) => {
-      const target = document.createElement('div');
-      target.textContent = data.text;
-      target.dataset.dropPairId = data.pairId;
-      baseCellStyle(target, cardPx);
-      target.style.backgroundColor = 'var(--panel-bg)';
-      target.style.border = '2px dashed var(--panel-border)';
-      targetEls[data.pairId] = target;
-
-      bottomRow.appendChild(target);
+      const card = createCard(data.text, data.pairId, cardPx, true);
+      targetEls[data.pairId] = card;
+      bottomRow.appendChild(card);
     });
   }
 
@@ -260,7 +279,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 // See tools/mod-tool/README.md for the full contract this must satisfy.
 export default {
   id: 'wordmatch',
-  titleText: 'EMOJI MATCH',
-  tutorialText: 'Drag each top card down onto the matching emoji below it.',
+  titleImg: '/UI/EMOJI MATCH.png',
+  tutorialText: 'Drag each card onto its matching emoji, from either row, until the whole board is cleared.',
   mount,
 };

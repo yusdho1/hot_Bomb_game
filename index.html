@@ -828,7 +828,9 @@
         min-height: 0;
         padding: 14px 14px 10px;
         border-radius: 20px;
-        border: 2px solid var(--panel-border);
+        /* No CSS border/background-color here — background_bp_Gradinet.png already draws its own
+           scalloped outline and fill. A plain rectangular CSS border on top of it double-framed
+           the shape (a straight box border around an already-outlined, non-rectangular image). */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -874,8 +876,9 @@
         align-items: center;
         justify-content: center;
         border-radius: 20px;
-        border: 2px solid var(--panel-border);
-        background-color: var(--panel-bg);
+        /* No CSS border/background-color — background_bp_Gradinet.png already draws its own
+           scalloped outline and fill; a plain rectangular border on top of it double-framed the
+           shape. Background stays transparent outside the image's own painted area. */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -1074,7 +1077,8 @@
         gap: 10px;
         padding: 14px;
         border-radius: 20px;
-        border: 2px solid var(--panel-border);
+        /* No CSS border — background_bp_Gradinet.png already draws its own scalloped outline;
+           a plain rectangular border on top of it double-framed the shape. */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),

@@ -189,11 +189,34 @@ document.getElementById('scaffold-btn').addEventListener('click', async () => {
     return;
   }
   try {
-    await api('POST', '/api/minigame/scaffold', { id, title });
-    showStatus(`Scaffolded ${id} — open src/render/puzzles/registry/${id[0].toUpperCase()}${id.slice(1)}.js to write it.`);
+    const result = await api('POST', '/api/minigame/scaffold', { id, title });
+    const base = `Scaffolded ${id} — open src/render/puzzles/registry/${id[0].toUpperCase()}${id.slice(1)}.js to write it.`;
+    showStatus(result.titleWarning ? `${base} ${result.titleWarning}` : base, !!result.titleWarning);
     document.getElementById('new-minigame-id').value = '';
     document.getElementById('new-minigame-title').value = '';
     await loadConfig();
+  } catch (err) {
+    showStatus(err.message, true);
+  }
+});
+
+document.getElementById('title-gen-btn').addEventListener('click', async () => {
+  const text = document.getElementById('title-gen-text').value.trim();
+  if (!text) {
+    showStatus('Enter some title text first.', true);
+    return;
+  }
+  try {
+    const result = await api('POST', '/api/title/generate', { text });
+    showStatus(`Saved public${result.path} — reload the Preview tab or your puzzle file's titleImg to see it.`);
+    const preview = document.getElementById('title-gen-preview');
+    preview.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = result.path + '?t=' + Date.now();
+    img.alt = text;
+    img.style.maxWidth = '300px';
+    img.style.marginTop = '10px';
+    preview.appendChild(img);
   } catch (err) {
     showStatus(err.message, true);
   }

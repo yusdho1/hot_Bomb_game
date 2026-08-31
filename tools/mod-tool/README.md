@@ -76,7 +76,9 @@ re-scans the folder as a side effect).
    `game.config.json`'s `minigames` list. At this point it's already live in rotation and
    **actually runnable** — the template is a working (if trivial) "tap the right option" puzzle,
    not a blank TODO, so you can confirm it appears in rotation and functions before changing
-   anything.
+   anything. If you entered a title, its banner PNG (styled like the existing Stroop/Swipe ones)
+   is rendered automatically and the template is wired to `titleImg` instead of `titleText` — see
+   "Title banner generator" below for how that works and how to regenerate one later.
 3. Open `QuickMath.js` and replace the placeholder content-generation with your real puzzle idea —
    keep reusing `.puzzle-option-grid`/`.puzzle-option-btn` (or read
    [`DESIGN_GUIDELINES.md`](./DESIGN_GUIDELINES.md) first if your idea needs a different visual or
@@ -87,6 +89,24 @@ re-scans the folder as a side effect).
 To remove a minigame: toggle it off in the list (non-destructive, the file stays on disk and can
 be re-enabled anytime) or click **Delete file** to permanently remove the file and its config
 entry.
+
+### Title banner generator
+
+The **Minigames** tab also has a standalone "Title banner generator" — type any text and it
+renders a PNG in the exact same chunky yellow-to-orange gradient/dark-red-outline style as the
+existing hand-made banners (`Stroop Title.png`, `Swipe.png`), saved to `public/UI/<text>.png`.
+Use it to make a banner for a game you scaffolded without a title, or to regenerate an existing
+one (just point that game's `titleImg` at the new file if the name changed).
+
+This works by reading the actual layer-effects (gradient stops, stroke color, drop-shadow
+distances) out of `public/UI/Ui Text File.psd`'s title text layer — see
+`tools/mod-tool/renderTitle.js` for the extracted values and the Canvas rendering that reproduces
+them. It needs **Berlin Sans FB Bold** (the exact font that PSD layer uses) installed on the
+machine running the mod tool — it ships with Microsoft Office/Windows, so it's usually already
+there; if not, the generator returns a clear error instead of silently using a wrong-looking font,
+and both the standalone generator and the scaffold flow above fall back to a plain `titleText`
+banner. Only the *rendered PNG pixels* are project assets — the `.ttf` itself is a licensed font
+and is never copied into the repo.
 
 ## Per-game settings
 

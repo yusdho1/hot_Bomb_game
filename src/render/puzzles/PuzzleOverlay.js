@@ -16,11 +16,20 @@ export const PUZZLES = REGISTRY.filter((p) => ENABLED_IDS.has(p.id));
 // never touches the bag — nothing to special-case there. Only used for the real match (never in
 // practiceMode, which always asks for a specific puzzleId).
 let pool = [];
+// The refill below excludes this id specifically to prevent it — without that exclusion, the
+// last id of one cycle and the first id of the next are picked completely independently, so
+// they can (and empirically do, ~4% of turns) land on the same puzzle back to back right at
+// that boundary, even though within any single cycle no repeat is possible.
+let lastPickedId = null;
 
 function pickPuzzle() {
-  if (pool.length === 0) pool = PUZZLES.map((p) => p.id);
+  if (pool.length === 0) {
+    pool = PUZZLES.map((p) => p.id);
+    if (lastPickedId && pool.length > 1) pool = pool.filter((id) => id !== lastPickedId);
+  }
   const idx = Math.floor(Math.random() * pool.length);
   const [id] = pool.splice(idx, 1);
+  lastPickedId = id;
   return PUZZLES.find((p) => p.id === id);
 }
 
@@ -152,7 +161,12 @@ export function mountPuzzleOverlay(
     onAttempt(success);
   }
 
-  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt, { difficulty });
+  // streakTarget is passed through so a puzzle whose own internal structure already implies a
+  // natural "done" point (WordMatch: every pair on the board matched) can report success that
+  // many times at once, satisfying the shared streak-to-pass counter in one shot instead of
+  // needing multiple separate rounds. Optional — most puzzles ignore it and just report each
+  // attempt as it happens (see the contract in DESIGN_GUIDELINES.md).
+  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt, { difficulty, streakTarget: streakTarget || 3 });
 
   return {
     updateTimer(seconds) {

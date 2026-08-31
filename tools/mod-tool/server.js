@@ -1,10 +1,12 @@
-// Standalone game-config editor. Plain Node http/fs — no framework, no extra dependencies.
-// Run with `npm run mod-tool` from the project root. Serves its own admin UI on a separate port
-// from the game's own dev server (npm run dev), and only ever talks to itself over 127.0.0.1.
+// Standalone game-config editor. Plain Node http/fs, no framework — the one exception is `canvas`
+// (see renderTitle.js), needed to render title banner PNGs server-side. Run with
+// `npm run mod-tool` from the project root. Serves its own admin UI on a separate port from the
+// game's own dev server (npm run dev), and only ever talks to itself over 127.0.0.1.
 import http from 'node:http';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { renderTitlePng, fontAvailable } from './renderTitle.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = 5175;
@@ -117,6 +119,19 @@ function regenerateRegistryIndex() {
   fs.writeFileSync(REGISTRY_INDEX, content);
 }
 
+// Renders a title banner PNG in the same style as the existing hand-made ones (Stroop Title.png,
+// Swipe.png — see renderTitle.js for where that style comes from) and saves it under
+// public/UI/<title>.png. Used both by scaffoldMinigame (auto-generate a new game's banner) and
+// the standalone "Generate title" tool for regenerating an existing one.
+function generateTitleAsset(titleText) {
+  const buffer = renderTitlePng(titleText);
+  const safeName = titleText.replace(/[\\/:*?"<>|]/g, '').trim();
+  if (!safeName) throw new Error('Title has no usable characters for a filename');
+  const filePath = path.join(PROJECT_ROOT, 'public', 'UI', `${safeName}.png`);
+  fs.writeFileSync(filePath, buffer);
+  return `/UI/${safeName}.png`;
+}
+
 function scaffoldMinigame(id, title) {
   if (!/^[a-z][a-zA-Z0-9]*$/.test(id)) {
     throw new Error('id must start with a lowercase letter and contain only letters/numbers');
@@ -124,16 +139,34 @@ function scaffoldMinigame(id, title) {
   const filePath = path.join(REGISTRY_DIR, `${pascalCase(id)}.js`);
   if (fs.existsSync(filePath)) throw new Error(`A minigame file already exists for id "${id}"`);
 
-  const template = fs
-    .readFileSync(TEMPLATE_PATH, 'utf8')
-    .replace(/__ID__/g, id)
-    .replace(/__TITLE__/g, (title || id).toUpperCase());
+  const titleText = (title || id).toUpperCase();
+  let template = fs.readFileSync(TEMPLATE_PATH, 'utf8').replace(/__ID__/g, id);
+
+  // Auto-generate the banner PNG from the entered title and wire the scaffold to use titleImg
+  // instead of the plain titleText fallback — falls back gracefully (plain text banner, same as
+  // before this existed) if rendering isn't available on this machine (e.g. the Berlin Sans FB
+  // Bold font isn't installed — see renderTitle.js).
+  let titleWarning = null;
+  let titleImgPath = null;
+  if (title) {
+    try {
+      titleImgPath = generateTitleAsset(titleText);
+    } catch (err) {
+      titleWarning = `Couldn't auto-generate a title banner (${err.message}) — using plain text instead.`;
+    }
+  }
+  template = titleImgPath
+    ? template.replace("titleText: '__TITLE__',", `titleImg: '${titleImgPath}',`)
+    : template.replace(/__TITLE__/g, titleText);
+
   fs.writeFileSync(filePath, template);
   regenerateRegistryIndex();
 
   const config = readConfig();
   config.minigames.push({ id, enabled: true });
   writeConfig(config);
+
+  return { titleWarning };
 }
 
 function removeMinigame(id, deleteFile) {
@@ -258,8 +291,24 @@ const server = http.createServer(async (req, res) => {
 
     if (req.method === 'POST' && pathname === '/api/minigame/scaffold') {
       const { id, title } = await readJsonBody(req);
-      scaffoldMinigame(id, title);
-      sendJson(res, 200, { ok: true });
+      const { titleWarning } = scaffoldMinigame(id, title);
+      sendJson(res, 200, { ok: true, titleWarning });
+      return;
+    }
+
+    if (req.method === 'GET' && pathname === '/api/title/font-available') {
+      sendJson(res, 200, { available: fontAvailable() });
+      return;
+    }
+
+    if (req.method === 'POST' && pathname === '/api/title/generate') {
+      const { text } = await readJsonBody(req);
+      if (!text || !text.trim()) {
+        sendJson(res, 400, { error: 'Enter some title text first.' });
+        return;
+      }
+      const path_ = generateTitleAsset(text.trim().toUpperCase());
+      sendJson(res, 200, { ok: true, path: path_ });
       return;
     }
 
