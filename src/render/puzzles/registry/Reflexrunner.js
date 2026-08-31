@@ -8,7 +8,7 @@ export const settingsSchema = [
 ];
 
 function mount(contentEl, onAttempt, { difficulty } = {}) {
-  const settings = readPuzzleSettings('__ID__', settingsSchema, difficulty);
+  const settings = readPuzzleSettings('reflexrunner', settingsSchema, difficulty);
   let destroyed = false;
   let currentStreak = 0;
   let animFrameId = null;
@@ -152,8 +152,8 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 }
 
 export default {
-  id: '__ID__',
-  titleText: '__TITLE__',
+  id: 'reflexrunner',
+  titleText: 'REFLEX RUNNER',
   tutorialText: 'Tap the button when the moving marker is inside the green zone!',
   mount,
 };

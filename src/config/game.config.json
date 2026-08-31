@@ -121,6 +121,13 @@
           "pairsPerRound": 6
         }
       }
+    },
+    "reflexrunner": {
+      "difficultyPresets": {
+        "easy": {},
+        "medium": {},
+        "hard": {}
+      }
     }
   },
   "sounds": {
@@ -208,11 +215,11 @@
         "label": "Hair",
         "options": [
           "/UI/Avatars/hair1.png",
-          null,
           "/UI/Avatars/hair2.png",
           "/UI/Avatars/hair3.png",
           "/UI/Avatars/hair4.png",
-          "/UI/Avatars/hair5.png"
+          "/UI/Avatars/hair5.png",
+          null
         ]
       }
     ]
