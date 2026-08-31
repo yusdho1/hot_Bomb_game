@@ -43,6 +43,22 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   contentEl.appendChild(promptEl);
   contentEl.appendChild(zoneEl);
 
+  // Square zone sized to whatever room is actually left after the prompt text — not a fixed cqh
+  // percentage of the whole page, which has no idea how much the title/timer/dots/logo chrome
+  // above and below the game box are already using (see Stroop.js's identical fix for the bug
+  // this caused: on a short window the zone could end up taller than the box, clipping the
+  // prompt off the top).
+  function sizeZone() {
+    const contentRect = contentEl.getBoundingClientRect();
+    const promptHeight = promptEl.getBoundingClientRect().height;
+    const CONTENT_GAP = 16; // matches .puzzle-content's CSS gap
+    const heightBudget = contentRect.height - promptHeight - CONTENT_GAP;
+    const zonePx = Math.max(90, Math.min(contentRect.width, heightBudget || contentRect.width));
+    zoneEl.style.width = `${zonePx}px`;
+    zoneEl.style.height = `${zonePx}px`;
+    zoneEl.style.fontSize = `${Math.round(zonePx * 0.35)}px`;
+  }
+
   function correctDirection() {
     if (rule.type === 'swipe') return rule.dir;
     if (rule.type === 'opposite') return OPPOSITE[rule.dir];
@@ -61,6 +77,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     else if (type === 'dont') promptEl.textContent = `DON'T SWIPE ${dir}!`;
     else promptEl.textContent = `SWIPE OPPOSITE OF ${dir}!`;
 
+    sizeZone();
     zoneEl.textContent = ARROW[dir];
   }
 

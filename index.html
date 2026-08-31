@@ -885,7 +885,12 @@
         box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         box-sizing: border-box;
         padding: 14px;
-        overflow: hidden;
+        /* Last-resort safety net, same role as .puzzle-panel's own overflow-y:auto — puzzle
+           content is sized via real-geometry measurement now specifically so this never has to
+           trigger, but overflow:hidden previously turned an over-tall measurement into silently
+           vanished content (the prompt text got clipped off) instead of a visible, scrollable one. */
+        overflow-y: auto;
+        overflow-x: hidden;
         position: relative;
       }
       .puzzle-banner {
@@ -991,6 +996,10 @@
       .puzzle-content {
         width: 100%;
         height: 100%;
+        /* border-box so a puzzle module that adds its own inline padding (WordMatch.js does)
+           doesn't push its rendered height past this element's 100% and silently overflow
+           .puzzle-game-box. */
+        box-sizing: border-box;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1245,18 +1254,14 @@
         gap: 10px;
       }
       .stroop-btn {
-        /* Square, not stretched — these are icon-like color swatches with no text content, so
-           they're sized to their own grid-column width (aspect-ratio derives height from that,
-           no JS measurement needed) rather than an independent height that could distort them
-           into tall rectangles. */
-        /* min() with the column's full width keeps it square while still capping the absolute
-           size to a sane fraction of the box's height, instead of letting aspect-ratio blow the
-           swatch up arbitrarily tall on a very narrow 2-column grid. */
-        width: min(100%, 32cqh);
-        aspect-ratio: 1 / 1;
+        /* width/height are set inline per-swatch by Stroop.js (real-geometry measurement of the
+           actual leftover space after the prompt/word text) so they're always square and never
+           taller than the room available — a CSS-only percentage couldn't know how much of the
+           page the surrounding chrome (title/timer/dots/logo) was already using. */
         border-radius: 10px;
         border: 3px solid rgba(0, 0, 0, 0.35);
         cursor: pointer;
+        box-sizing: border-box;
       }
       /* Generic "pick one of N" building block for new minigames — a styled, on-brand grid of
          tap targets so a new puzzle never has to invent its own one-off button styling from
@@ -1294,20 +1299,19 @@
         box-shadow: 0 1px 0 var(--accent-orange-border);
       }
       .swipe-zone {
-        /* A single icon-like drop zone (one big arrow), not a text button — square, sized to
-           whichever of the box's width/height is tighter, same logic as .stroop-btn. */
-        width: min(100%, 55cqh);
-        aspect-ratio: 1 / 1;
+        /* width/height/font-size are set inline by Swipe.js (real-geometry measurement of the
+           leftover space after the prompt text) — see Stroop.js's identical fix for why a
+           page-wide cqh percentage isn't safe here. */
         border-radius: 14px;
         border: 3px dashed rgba(255, 255, 255, 0.4);
         display: flex;
         align-items: center;
         justify-content: center;
         font-family: var(--font-display);
-        font-size: clamp(36px, 22cqmin, 140px);
         color: rgba(255, 255, 255, 0.7);
         touch-action: none;
         user-select: none;
+        box-sizing: border-box;
       }
       .mole-grid {
         /* Cell size (grid-template-columns/grid-auto-rows) is set from JS at mount time

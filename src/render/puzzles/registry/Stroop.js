@@ -52,6 +52,24 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   contentEl.appendChild(wordEl);
   contentEl.appendChild(gridEl);
 
+  const CONTENT_GAP = 16; // matches .puzzle-content's CSS gap between prompt/word/grid
+  const CELL_GAP = 10;
+
+  // Swatches are square tap targets sized to fit the space actually left over after the prompt
+  // and word text — not a fixed cqh percentage of the whole page. A page-wide percentage has no
+  // idea how much the title/fuse-timer/dots/footer chrome above and below the game box are
+  // already taking, so on a short desktop window it could size the grid taller than the box
+  // actually has room for, clipping (or even fully hiding) the prompt text above it. Measuring
+  // contentEl's real height and subtracting the prompt/word's own real rendered height instead
+  // guarantees the grid never overflows, the same real-geometry approach WordMatch.js uses.
+  function computeSwatchPx() {
+    const contentRect = contentEl.getBoundingClientRect();
+    const usedHeight = promptEl.getBoundingClientRect().height + wordEl.getBoundingClientRect().height + CONTENT_GAP * 2;
+    const heightPerBtn = (contentRect.height - usedHeight - CELL_GAP) / 2;
+    const widthPerBtn = (contentRect.width - CELL_GAP) / 2;
+    return Math.max(40, Math.min(widthPerBtn, heightPerBtn || widthPerBtn));
+  }
+
   function nextRound() {
     if (destroyed) return;
 
@@ -90,10 +108,16 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
 
     correctAnswer = selectByColor ? displayColor.name : word.name;
 
+    // Measured after the prompt/word text above are set (their real height can shift slightly
+    // with content) and while the grid is still empty from the previous round's clear below.
     gridEl.innerHTML = '';
+    const swatchPx = computeSwatchPx();
+
     activeFourColors.forEach((color) => {
       const btn = document.createElement('button');
       btn.className = 'stroop-btn';
+      btn.style.width = `${swatchPx}px`;
+      btn.style.height = `${swatchPx}px`;
       btn.style.background = color.hex;
       btn.addEventListener('click', () => handleAnswer(color.name));
       gridEl.appendChild(btn);

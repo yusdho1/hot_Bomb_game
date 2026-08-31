@@ -61,6 +61,10 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
   contentEl.style.flexDirection = 'column';
   contentEl.style.alignItems = 'center';
   contentEl.style.justifyContent = 'center';
+  // border-box matters here: contentEl's height:100% comes from the .puzzle-content CSS class,
+  // and without border-box this padding would be added on TOP of that 100% (content-box is the
+  // default), silently overflowing the box by exactly the padding amount.
+  contentEl.style.boxSizing = 'border-box';
   contentEl.style.padding = '10px 0';
   contentEl.style.userSelect = 'none';
   contentEl.style.touchAction = 'none';
