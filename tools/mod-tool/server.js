@@ -16,6 +16,11 @@ const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 const CONFIG_PATH = path.join(PROJECT_ROOT, 'src', 'config', 'game.config.json');
 const REGISTRY_DIR = path.join(PROJECT_ROOT, 'src', 'render', 'puzzles', 'registry');
 const REGISTRY_INDEX = path.join(REGISTRY_DIR, 'index.js');
+// Zip (the Snake sabotage puzzle) deliberately lives outside registry/ — it isn't part of the
+// pass-the-bomb rotation, so it must never appear in discovered.minigameFiles (that list drives
+// the "file exists but has no config.minigames entry" warning, which would be a false positive
+// for it). It still gets its own settingsSchema picked up below, just merged in separately.
+const EXTRA_SCHEMA_FILES = [{ id: 'zip', path: path.join(PROJECT_ROOT, 'src', 'render', 'puzzles', 'ZipPuzzle.js') }];
 const SOUNDS_DIR = path.join(PROJECT_ROOT, 'public', 'Sounds');
 const AVATARS_DIR = path.join(PROJECT_ROOT, 'public', 'UI', 'Avatars');
 const TEMPLATE_PATH = path.join(__dirname, 'templates', 'minigame.template.js');
@@ -261,6 +266,11 @@ const server = http.createServer(async (req, res) => {
       const schemas = {};
       modules.forEach((m) => {
         if (m.schema.length > 0) schemas[m.id] = m.schema;
+      });
+      EXTRA_SCHEMA_FILES.forEach(({ id, path: filePath }) => {
+        if (!fs.existsSync(filePath)) return;
+        const schema = extractSettingsSchema(fs.readFileSync(filePath, 'utf8'));
+        if (schema.length > 0) schemas[id] = schema;
       });
       sendJson(res, 200, {
         config,

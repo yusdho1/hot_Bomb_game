@@ -1,9 +1,16 @@
-const GRID_SIZE = 5;
-const NUM_CHECKPOINTS = 6;
+import { readPuzzleSettings } from './puzzleSettings.js';
+
 const BRIDGE_PX = 8;
 const MAX_CELL_PX = 64;
 const MIN_CELL_PX = 32;
 const MAX_DFS_STEPS = 200000;
+
+// Difficulty-tunable via the mod tool: a bigger grid means more tiles to fully cover, more
+// checkpoints means a more constrained (harder to intuit) required path through it.
+export const settingsSchema = [
+  { key: 'gridSize', label: 'Grid size', type: 'number', default: 5 },
+  { key: 'checkpoints', label: 'Checkpoints', type: 'number', default: 6 },
+];
 
 function key(r, c) {
   return `${r},${c}`;
@@ -17,26 +24,26 @@ function shuffle(arr) {
   return arr;
 }
 
-function neighborsOf(r, c) {
+function neighborsOf(r, c, gridSize) {
   return shuffle(
     [
       [r - 1, c],
       [r + 1, c],
       [r, c - 1],
       [r, c + 1],
-    ].filter(([nr, nc]) => nr >= 0 && nr < GRID_SIZE && nc >= 0 && nc < GRID_SIZE)
+    ].filter(([nr, nc]) => nr >= 0 && nr < gridSize && nc >= 0 && nc < gridSize)
   );
 }
 
 // Guaranteed-valid fallback: a boustrophedon ("snake") path always covers every cell of any
 // rectangular grid exactly once.
-function boustrophedonPath() {
+function boustrophedonPath(gridSize) {
   const path = [];
-  for (let r = 0; r < GRID_SIZE; r++) {
+  for (let r = 0; r < gridSize; r++) {
     if (r % 2 === 0) {
-      for (let c = 0; c < GRID_SIZE; c++) path.push([r, c]);
+      for (let c = 0; c < gridSize; c++) path.push([r, c]);
     } else {
-      for (let c = GRID_SIZE - 1; c >= 0; c--) path.push([r, c]);
+      for (let c = gridSize - 1; c >= 0; c--) path.push([r, c]);
     }
   }
   return path;
@@ -47,8 +54,8 @@ function boustrophedonPath() {
 // a full-coverage path can only start/end on that color, so starting elsewhere would force the
 // search to exhaustively prove impossibility every time. A step budget plus the deterministic
 // fallback above guarantee this always terminates quickly either way.
-function generateHamiltonianPath() {
-  const total = GRID_SIZE * GRID_SIZE;
+function generateHamiltonianPath(gridSize) {
+  const total = gridSize * gridSize;
 
   function tryFrom(start) {
     const visited = new Set([key(...start)]);
@@ -59,7 +66,7 @@ function generateHamiltonianPath() {
       steps++;
       if (steps > MAX_DFS_STEPS) return 'budget';
       if (path.length === total) return true;
-      for (const n of neighborsOf(cell[0], cell[1])) {
+      for (const n of neighborsOf(cell[0], cell[1], gridSize)) {
         const k = key(n[0], n[1]);
         if (visited.has(k)) continue;
         path.push(n);
@@ -77,8 +84,8 @@ function generateHamiltonianPath() {
   }
 
   const evenCells = [];
-  for (let r = 0; r < GRID_SIZE; r++) {
-    for (let c = 0; c < GRID_SIZE; c++) {
+  for (let r = 0; r < gridSize; r++) {
+    for (let c = 0; c < gridSize; c++) {
       if ((r + c) % 2 === 0) evenCells.push([r, c]);
     }
   }
@@ -88,27 +95,31 @@ function generateHamiltonianPath() {
     const result = tryFrom(start);
     if (result) return result;
   }
-  return boustrophedonPath();
+  return boustrophedonPath(gridSize);
 }
 
-// Spreads 1..NUM_CHECKPOINTS evenly across the generated path's indices (always index 0 -> "1"
+// Spreads 1..numCheckpoints evenly across the generated path's indices (always index 0 -> "1"
 // and the last index -> the top number), so the path itself is one valid solution.
-function placeCheckpoints(path) {
+function placeCheckpoints(path, numCheckpoints) {
   const numbered = new Map();
   const lastIndex = path.length - 1;
-  for (let n = 1; n <= NUM_CHECKPOINTS; n++) {
-    const idx = Math.round(((n - 1) / (NUM_CHECKPOINTS - 1)) * lastIndex);
+  for (let n = 1; n <= numCheckpoints; n++) {
+    const idx = Math.round(((n - 1) / (numCheckpoints - 1)) * lastIndex);
     numbered.set(key(...path[idx]), n);
   }
   return numbered;
 }
 
 export const ZipPuzzle = {
-  mount(containerEl, { onSolved }) {
+  mount(containerEl, { onSolved, difficulty }) {
     containerEl.innerHTML = '';
 
-    const solutionPath = generateHamiltonianPath();
-    const numbered = placeCheckpoints(solutionPath);
+    const settings = readPuzzleSettings('zip', settingsSchema, difficulty);
+    const gridSize = Math.max(3, Math.round(settings.gridSize));
+    const numCheckpoints = Math.max(2, Math.round(settings.checkpoints));
+
+    const solutionPath = generateHamiltonianPath(gridSize);
+    const numbered = placeCheckpoints(solutionPath, numCheckpoints);
 
     let playerPath = [];
     let playerFilled = new Set();
@@ -127,7 +138,7 @@ export const ZipPuzzle = {
 
     const hint = document.createElement('div');
     hint.className = 'zip-hint';
-    hint.textContent = `Connect 1→6, fill every tile!`;
+    hint.textContent = `Connect 1→${numCheckpoints}, fill every tile!`;
     panel.appendChild(hint);
 
     // Size the grid off the overlay's real available width instead of a fixed constant, so it
@@ -135,12 +146,12 @@ export const ZipPuzzle = {
     const containerWidth = containerEl.clientWidth || 320;
     const panelWidth = Math.min(containerWidth * 0.92, 420);
     const gridAvailable = panelWidth - 28; // panel's own left+right padding
-    const rawCell = (gridAvailable - (GRID_SIZE - 1) * BRIDGE_PX) / GRID_SIZE;
+    const rawCell = (gridAvailable - (gridSize - 1) * BRIDGE_PX) / gridSize;
     const cellPx = Math.max(MIN_CELL_PX, Math.min(MAX_CELL_PX, Math.floor(rawCell)));
 
     const gridEl = document.createElement('div');
     gridEl.className = 'zip-grid-wrap';
-    const tracks = Array.from({ length: 2 * GRID_SIZE - 1 }, (_, i) => `${i % 2 === 0 ? cellPx : BRIDGE_PX}px`).join(
+    const tracks = Array.from({ length: 2 * gridSize - 1 }, (_, i) => `${i % 2 === 0 ? cellPx : BRIDGE_PX}px`).join(
       ' '
     );
     gridEl.style.gridTemplateColumns = tracks;
@@ -225,7 +236,7 @@ export const ZipPuzzle = {
 
       placeCell(r, c);
 
-      if (playerPath.length === GRID_SIZE * GRID_SIZE) finishSolved();
+      if (playerPath.length === gridSize * gridSize) finishSolved();
     }
 
     function undoLast() {
@@ -253,8 +264,8 @@ export const ZipPuzzle = {
       onSolved();
     }
 
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize; c++) {
         const cellEl = document.createElement('div');
         cellEl.className = 'zip-cell';
         cellEl.dataset.key = key(r, c);
@@ -275,8 +286,8 @@ export const ZipPuzzle = {
       }
     }
 
-    for (let r = 0; r < GRID_SIZE; r++) {
-      for (let c = 0; c < GRID_SIZE - 1; c++) {
+    for (let r = 0; r < gridSize; r++) {
+      for (let c = 0; c < gridSize - 1; c++) {
         const el = document.createElement('div');
         el.className = 'zip-bridge zip-bridge-h';
         el.style.gridColumnStart = 2 * c + 2;
@@ -285,8 +296,8 @@ export const ZipPuzzle = {
         bridgeEls[`h-${r}-${c}`] = el;
       }
     }
-    for (let r = 0; r < GRID_SIZE - 1; r++) {
-      for (let c = 0; c < GRID_SIZE; c++) {
+    for (let r = 0; r < gridSize - 1; r++) {
+      for (let c = 0; c < gridSize; c++) {
         const el = document.createElement('div');
         el.className = 'zip-bridge zip-bridge-v';
         el.style.gridColumnStart = 2 * c + 1;

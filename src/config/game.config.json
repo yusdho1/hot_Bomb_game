@@ -20,8 +20,6 @@
       2.5,
       3
     ],
-    "zipGridSize": 5,
-    "zipCheckpoints": 6,
     "tomatoStainSizePx": 90,
     "points": {
       "perSecondRemaining": 5,
@@ -55,6 +53,14 @@
     },
     {
       "id": "reflexrunner",
+      "enabled": true
+    },
+    {
+      "id": "wirecut",
+      "enabled": true
+    },
+    {
+      "id": "pipeconnect",
       "enabled": true
     }
   ],
@@ -146,6 +152,62 @@
       "targetSizePercent": 20,
       "pointerSpeed": 1.5,
       "edgeMarginPercent": 5
+    },
+    "zip": {
+      "difficultyPresets": {
+        "easy": {
+          "gridSize": 4,
+          "checkpoints": 4
+        },
+        "medium": {
+          "gridSize": 5,
+          "checkpoints": 6
+        },
+        "hard": {
+          "gridSize": 6,
+          "checkpoints": 8
+        }
+      },
+      "gridSize": 5,
+      "checkpoints": 6
+    },
+    "wirecut": {
+      "difficultyPresets": {
+        "easy": {
+          "wireCount": 3,
+          "complexRuleChance": 0
+        },
+        "medium": {
+          "wireCount": 4,
+          "complexRuleChance": 50
+        },
+        "hard": {
+          "wireCount": 5,
+          "complexRuleChance": 85
+        }
+      },
+      "wireCount": 4,
+      "complexRuleChance": 50,
+      "colorRed": "#f02e19",
+      "colorBlue": "#1148ee",
+      "colorYellow": "#ffea00",
+      "colorGreen": "#3be421",
+      "colorPurple": "#6e0099",
+      "colorOrange": "#ffa200"
+    },
+    "pipeconnect": {
+      "difficultyPresets": {
+        "easy": {
+          "gridSize": 2
+        },
+        "medium": {
+          "gridSize": 3
+        },
+        "hard": {
+          "gridSize": 4
+        }
+      },
+      "gridSize": 3
     }
   },
   "sounds": {

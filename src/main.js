@@ -673,7 +673,10 @@ function openZipPuzzle() {
   throwTomatoBtn.classList.add('hidden');
   shopBtn.classList.add('hidden');
   zipOverlayEl.classList.remove('hidden');
-  zipHandle = ZipPuzzle.mount(zipOverlayEl, { onSolved: handleZipSolved });
+  zipHandle = ZipPuzzle.mount(zipOverlayEl, {
+    onSolved: handleZipSolved,
+    difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
+  });
   zipOverlayEl.appendChild(zipCancelBtn);
 }
 

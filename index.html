@@ -1407,6 +1407,179 @@
         user-select: none;
         box-sizing: border-box;
       }
+      .wirecut-row {
+        /* Height set inline by Wirecut.js (real-geometry measurement of the leftover space after
+           the prompt text, same fix as .swipe-zone above). Width per wire is left to flexbox. */
+        width: 100%;
+        display: flex;
+        align-items: stretch;
+        justify-content: center;
+        gap: 12px;
+      }
+      .wirecut-wire {
+        /* background-color is set inline per-wire (its whole color IS the game content, same as
+           .stroop-btn). The 3D look is two separate layers on top of it: this element's own
+           background-image darkens both vertical edges (a plain gradient, sharp edges are fine
+           here — it's a shadow, not a highlight), while .wirecut-wire-shine (a real child element,
+           not a gradient) is a soft blurred white bar down the middle — an actual filter:blur, not
+           more gradient stops, is what makes that center transition read as smooth/3D instead of a
+           flat triangular shape. Plain rectangle, not a rounded pill. Metal "clamp" caps top and
+           bottom via ::before/::after (deliberately poking a few px past this element's own top
+           and bottom edge) so it still reads as a cut wire, not just a colored bar — no
+           overflow:hidden here, that would clip the clamps; .wirecut-wire-shine below stays flush
+           with the wire's own box instead so its blur has nothing to spill past. */
+        flex: 1 1 0;
+        max-width: 70px;
+        min-width: 28px;
+        border-radius: 6px;
+        border: 3px solid rgba(0, 0, 0, 0.35);
+        background-image: linear-gradient(
+          90deg,
+          rgba(0, 0, 0, 0.7) 0%,
+          rgba(0, 0, 0, 0) 30%,
+          rgba(0, 0, 0, 0) 70%,
+          rgba(0, 0, 0, 0.7) 100%
+        );
+        cursor: pointer;
+        position: relative;
+        box-sizing: border-box;
+      }
+      .wirecut-wire-shine {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 50%;
+        width: 42%;
+        transform: translateX(-50%);
+        background: rgba(255, 255, 255, 0.75);
+        filter: blur(7px);
+        pointer-events: none;
+      }
+      .wirecut-wire::before,
+      .wirecut-wire::after {
+        content: '';
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        width: 135%;
+        height: 12px;
+        background: linear-gradient(180deg, #d9d9d9, #6b6b6b);
+        border: 2px solid rgba(0, 0, 0, 0.45);
+        border-radius: 4px;
+      }
+      .wirecut-wire::before {
+        top: -5px;
+      }
+      .wirecut-wire::after {
+        bottom: -5px;
+      }
+      /* width/height are set inline by Pipeconnect.js (real-geometry measurement, same fix as
+         .swipe-zone/.wirecut-row above) — this is just the square board frame the grid + its two
+         static inlet/outlet stubs sit inside. */
+      .pipe-board-row {
+        position: relative;
+        flex-shrink: 0;
+      }
+      .pipe-grid {
+        position: absolute;
+        inset: 0;
+        display: grid;
+        gap: 4px;
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 10px;
+        padding: 4px;
+        box-sizing: border-box;
+      }
+      /* The fixed, non-rotatable supply/output pipe stubs poking out past the grid's left/right
+         edge — top is set inline per round to line up with that round's entry/exit row. */
+      .pipe-io {
+        position: absolute;
+        width: 22px;
+        height: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        background: linear-gradient(180deg, #bfe9ff, #2f8fd1 45%, #1b5f8f);
+        border-top: 2px solid rgba(255, 255, 255, 0.4);
+        border-bottom: 2px solid rgba(0, 0, 0, 0.3);
+        box-sizing: border-box;
+      }
+      .pipe-inlet {
+        left: -22px;
+        border-radius: 6px 0 0 6px;
+      }
+      .pipe-outlet {
+        right: -22px;
+        border-radius: 0 6px 6px 0;
+      }
+      .pipe-tile {
+        position: relative;
+        border-radius: 6px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        padding: 0;
+        overflow: hidden;
+      }
+      .pipe-tile:hover {
+        background: rgba(255, 255, 255, 0.09);
+      }
+      /* The actual pipe graphic is drawn once in its base (0°) orientation — .pipe-straight as a
+         W/E stub pair, .pipe-corner as an N/E stub pair — and Pipeconnect.js rotates this whole
+         wrapper 90° at a time via transform, so a tap always reads as a real rotation instead of
+         an instant cut between two static frames. */
+      .pipe-shape {
+        position: absolute;
+        inset: 0;
+        transition: transform 0.15s ease;
+      }
+      .pipe-stub-n,
+      .pipe-stub-e,
+      .pipe-stub-w {
+        position: absolute;
+        /* Grey (dry) by default — Pipeconnect.js toggles .pipe-tile.connected in real time as
+           rotations change, and only a tile water actually reaches from the entry turns blue. */
+        background: linear-gradient(180deg, #d8d8d8, #8c8c8c 45%, #5c5c5c);
+        border: 2px solid rgba(0, 0, 0, 0.3);
+        box-sizing: border-box;
+        transition: background 0.15s ease;
+      }
+      .pipe-tile.connected .pipe-stub-n,
+      .pipe-tile.connected .pipe-stub-e,
+      .pipe-tile.connected .pipe-stub-w {
+        background: linear-gradient(180deg, #bfe9ff, #2f8fd1 45%, #1b5f8f);
+      }
+      .pipe-stub-n {
+        top: 0;
+        left: 35%;
+        width: 30%;
+        height: 52%;
+      }
+      .pipe-stub-e {
+        right: 0;
+        top: 35%;
+        width: 52%;
+        height: 30%;
+      }
+      .pipe-stub-w {
+        left: 0;
+        top: 35%;
+        width: 52%;
+        height: 30%;
+      }
+      .pipe-hub {
+        position: absolute;
+        left: 32%;
+        top: 32%;
+        width: 36%;
+        height: 36%;
+        border-radius: 50%;
+        background: #8c8c8c;
+        border: 2px solid rgba(0, 0, 0, 0.3);
+        transition: background 0.15s ease;
+      }
+      .pipe-tile.connected .pipe-hub {
+        background: #2f8fd1;
+      }
       .mole-grid {
         /* Cell size (grid-template-columns/grid-auto-rows) is set from JS at mount time
            (WhackAMole.js), the same real-geometry approach ZipPuzzle.js already uses — it reads
