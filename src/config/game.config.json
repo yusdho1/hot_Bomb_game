@@ -22,6 +22,7 @@
     ],
     "zipGridSize": 5,
     "zipCheckpoints": 6,
+    "tomatoStainSizePx": 90,
     "points": {
       "perSecondRemaining": 5,
       "zipSolveBonus": 15,
@@ -158,7 +159,7 @@
         "/Sounds/clock-ticking-down SFX2.mp3"
       ]
     },
-    "alarm": {
+    "globalSiren": {
       "files": [
         "/Sounds/Alarm SFX.mp3"
       ]
@@ -189,6 +190,21 @@
       ]
     },
     "tap": {
+      "files": [
+        "/Sounds/bombsound.mp3"
+      ]
+    },
+    "tomatoThrow": {
+      "files": [
+        "/Sounds/bombsound.mp3"
+      ]
+    },
+    "tomatoSquash": {
+      "files": [
+        "/Sounds/smallsucsses.mp3"
+      ]
+    },
+    "shieldDeflect": {
       "files": [
         "/Sounds/bombsound.mp3"
       ]

@@ -11,13 +11,16 @@ const SETTINGS_FIELDS = [
   { path: 'settings.streakTarget', label: 'Streak target', type: 'number' },
   { path: 'settings.zipEnabledDefault', label: 'Zip sabotage default on', type: 'checkbox' },
   { path: 'settings.zipStainSecondsDefault', label: 'Tomato stain duration (s)', type: 'number' },
+  { path: 'settings.tomatoStainSizePx', label: 'Tomato stain size (px)', type: 'number' },
   { path: 'settings.zipGridSize', label: 'Zip grid size', type: 'number' },
   { path: 'settings.zipCheckpoints', label: 'Zip checkpoints', type: 'number' },
   { path: 'settings.points.perSecondRemaining', label: 'Points per fuse-second remaining', type: 'number' },
   { path: 'settings.points.zipSolveBonus', label: 'Zip solve bonus points', type: 'number' },
   { path: 'settings.points.fuseBonusSeconds', label: 'Shop: fuse bonus seconds', type: 'number' },
+  { path: 'settings.points.antiTomatoShieldCharges', label: 'Shield charges per purchase', type: 'number' },
   { path: 'settings.points.prices.fuseTime', label: 'Shop price: fuse time', type: 'number' },
   { path: 'settings.points.prices.throwTomato', label: 'Shop price: throw tomato', type: 'number' },
+  { path: 'settings.points.prices.antiTomatoShield', label: 'Shop price: anti-tomato shield', type: 'number' },
   { path: 'settings.points.prices.skipPass', label: 'Shop price: skip pass', type: 'number' },
 ];
 

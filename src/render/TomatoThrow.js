@@ -97,7 +97,7 @@ export const TomatoThrow = {
     }
 
     function launchTomato(img, dx) {
-      SoundManager.playSmallSuccess();
+      SoundManager.playTomatoThrow();
       Haptics.pulseLow();
       onThrow();
       count -= 1;

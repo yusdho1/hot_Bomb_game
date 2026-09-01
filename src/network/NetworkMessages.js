@@ -33,6 +33,7 @@ function snapshotMatchState(matchState) {
     zipEnabled: matchState.zipEnabled,
     zipStainDurationSeconds: matchState.zipStainDurationSeconds,
     zipStain: matchState.zipStain,
+    tomatoDeflect: matchState.tomatoDeflect,
     turnNotice: matchState.turnNotice,
     winCounts: matchState.winCounts,
     points: matchState.points,

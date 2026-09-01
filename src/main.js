@@ -48,6 +48,8 @@ const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
 const turnNoticeToastEl = document.getElementById('turn-notice-toast');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
+const shieldPulseOverlayEl = document.getElementById('shield-pulse-overlay');
+const globalDangerOverlayEl = document.getElementById('global-danger-overlay');
 const solveZipBtn = document.getElementById('solve-zip-btn');
 const throwTomatoBtn = document.getElementById('throw-tomato-btn');
 const throwTomatoCountEl = document.getElementById('throw-tomato-count');
@@ -111,7 +113,6 @@ const DURATION_STEPS = [30, 60, 90, 120];
 const ZIP_DURATION_STEPS = [1, 1.5, 2, 2.5, 3];
 const STREAK_STEPS = [1, 2, 3, 4];
 const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
-const TOMATO_STAIN_PX = 90;
 
 // One topic per page, stepped through with the prev/next arrows instead of shown all at once.
 const HOW_TO_PLAY_PAGES = [
@@ -167,6 +168,7 @@ let phaserGame = null;
 let lastMatchState = null;
 let lastEliminationNoticeId = undefined;
 let lastZipStainSeq = 0;
+let lastTomatoDeflectSeq = 0;
 let lastTurnNoticeSeq = 0;
 let puzzleHandle = null;
 let tutorialPuzzleHandle = null;
@@ -446,6 +448,7 @@ function applyMatchState(matchState) {
   if (scene) scene.applyMatchState(matchState);
   applyEliminationNotice(matchState.eliminationNotice);
   checkZipStain(matchState);
+  checkTomatoDeflect(matchState);
   checkTurnNotice(matchState);
 
   if (!pointsBalanceEl.classList.contains('hidden')) updatePointsBalanceChip(matchState);
@@ -470,9 +473,23 @@ function applyMatchState(matchState) {
     SoundManager.playGlobalTicking();
     const globalUrgency = Math.max(0, Math.min(1, (15 - matchState.globalTimeRemaining) / 15));
     SoundManager.setGlobalTickingRate(1 + globalUrgency);
-    if (matchState.globalTimeRemaining <= 10) SoundManager.playAlarmOnce();
+
+    // Last stretch of the match clock: a siren + pulsing red screen for everyone EXCEPT the
+    // current holder, who already has their own personal-fuse alarm/urgency cues going and
+    // doesn't need a second, unrelated danger signal competing for their attention while solving.
+    const isFinalCountdown = matchState.globalTimeRemaining <= 10;
+    const isHolder = matchState.bombHolderId === localPlayerId;
+    if (isFinalCountdown && !isHolder) {
+      SoundManager.playGlobalSiren();
+      globalDangerOverlayEl.classList.add('active');
+    } else {
+      SoundManager.stopGlobalSiren();
+      globalDangerOverlayEl.classList.remove('active');
+    }
   } else {
     SoundManager.stopGlobalTicking();
+    SoundManager.stopGlobalSiren();
+    globalDangerOverlayEl.classList.remove('active');
   }
 
   if (matchState.phase === 'active' && matchState.bombHolderId === localPlayerId) {
@@ -783,8 +800,29 @@ function updateShopModal(matchState) {
 function checkZipStain(matchState) {
   if (!matchState.zipStain || matchState.zipStain.seq === lastZipStainSeq) return;
   lastZipStainSeq = matchState.zipStain.seq;
-  if (matchState.zipStain.targetPlayerId === localPlayerId) {
+  const { targetPlayerId, throwerId } = matchState.zipStain;
+  if (targetPlayerId === localPlayerId) {
     showTomatoStain(matchState.zipStainDurationSeconds);
+    SoundManager.playTomatoSquash();
+  }
+  if (throwerId === localPlayerId) {
+    SoundManager.playTomatoSquash();
+  }
+}
+
+// Same seq-based new-event detection as checkZipStain, but for a throw the holder's shield
+// absorbed — fires instead of zipStain (see throwTomatoFromBasket), so a blocked throw still
+// gives both players real feedback instead of silently doing nothing.
+function checkTomatoDeflect(matchState) {
+  if (!matchState.tomatoDeflect || matchState.tomatoDeflect.seq === lastTomatoDeflectSeq) return;
+  lastTomatoDeflectSeq = matchState.tomatoDeflect.seq;
+  const { targetPlayerId, throwerId } = matchState.tomatoDeflect;
+  if (targetPlayerId === localPlayerId) {
+    showShieldPulse();
+    SoundManager.playShieldDeflect();
+  }
+  if (throwerId === localPlayerId) {
+    SoundManager.playShieldDeflect();
   }
 }
 
@@ -810,26 +848,42 @@ function checkTurnNotice(matchState) {
 }
 
 function showTomatoStain(durationSeconds) {
-  // Land it on the puzzle panel itself (what the holder is actually looking at), not anywhere
-  // in the letterboxed game-container around it.
-  const panelEl = puzzleOverlayEl.querySelector('.puzzle-panel') || gameEl;
+  // Lands on the actual puzzle game box — the surface the holder is staring at while solving —
+  // appended onto #puzzle-overlay itself. That overlay is a full-screen fixed layer that covers
+  // #game-container entirely while the holder's own puzzle is up, so appending onto #game-container
+  // (the old approach, back when the puzzle was a boxed-in popup rather than full-screen) landed
+  // the splat behind what the holder was actually looking at — it was never visible to them.
+  const panelEl = puzzleOverlayEl.querySelector('.puzzle-game-box') || puzzleOverlayEl;
   const panelRect = panelEl.getBoundingClientRect();
-  const gameRect = gameEl.getBoundingClientRect();
-  const offsetX = panelRect.left - gameRect.left;
-  const offsetY = panelRect.top - gameRect.top;
-  const maxX = Math.max(0, panelRect.width - TOMATO_STAIN_PX);
-  const maxY = Math.max(0, panelRect.height - TOMATO_STAIN_PX);
+  const overlayRect = puzzleOverlayEl.getBoundingClientRect();
+  const offsetX = panelRect.left - overlayRect.left;
+  const offsetY = panelRect.top - overlayRect.top;
+  const stainSize = gameConfig.settings.tomatoStainSizePx || 90;
+  const maxX = Math.max(0, panelRect.width - stainSize);
+  const maxY = Math.max(0, panelRect.height - stainSize);
 
   const stain = document.createElement('img');
   stain.src = '/UI/Sprites/Tomato_Stain.png';
   stain.alt = '';
   stain.className = 'tomato-stain';
+  stain.style.width = `${stainSize}px`;
+  stain.style.height = `${stainSize}px`;
   stain.style.left = `${offsetX + Math.random() * maxX}px`;
   stain.style.top = `${offsetY + Math.random() * maxY}px`;
   stain.style.setProperty('--tomato-rot', `${Math.random() * 360}deg`);
-  gameEl.appendChild(stain);
+  puzzleOverlayEl.appendChild(stain);
   setTimeout(() => stain.remove(), Math.max(200, durationSeconds * 1000));
 }
+
+// A brief pulsing soft-blue glow around the screen edge — tells the holder their Anti-Tomato
+// Shield just absorbed an incoming throw. Fixed/full-viewport (not scoped to #puzzle-overlay)
+// since it's a screen-wide "something happened to you" cue, not tied to the puzzle surface itself.
+function showShieldPulse() {
+  shieldPulseOverlayEl.classList.remove('active');
+  void shieldPulseOverlayEl.offsetWidth; // restart the animation if it fires again mid-pulse
+  shieldPulseOverlayEl.classList.add('active');
+}
+shieldPulseOverlayEl.addEventListener('animationend', () => shieldPulseOverlayEl.classList.remove('active'));
 
 function showGameOver({ winners, loserId, winCounts, points, tomatoesThrown }) {
   unmountPuzzleUI();
@@ -937,14 +991,16 @@ function returnToLobby(message) {
   lastMatchState = null;
   lastEliminationNoticeId = undefined;
   lastZipStainSeq = 0;
+  lastTomatoDeflectSeq = 0;
   lastTurnNoticeSeq = 0;
   clearTimeout(turnNoticeHideTimeout);
   turnNoticeToastEl.classList.remove('visible');
+  globalDangerOverlayEl.classList.remove('active');
   vibratedThresholds.clear();
   SoundManager.stopGlobalTicking();
+  SoundManager.stopGlobalSiren();
   SoundManager.stopPersonalAlarm();
   SoundManager.stopPersonalRoundMusic();
-  SoundManager.resetAlarm();
 
   gameOverPanelEl.classList.add('hidden');
   gameEl.classList.add('hidden');

@@ -631,6 +631,53 @@
         z-index: 100;
         container-type: size;
       }
+      /* "Your shield just worked" cue — a soft blue glow pulsing in from the screen edges,
+         full-viewport and above #puzzle-overlay so it reads regardless of what the holder is
+         looking at. Idle by default (no box-shadow, so it costs nothing to sit in the DOM);
+         adding .active plays the pulse once and main.js removes the class on animationend so
+         it's ready to restart cleanly if triggered again right away. */
+      #shield-pulse-overlay {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 150;
+      }
+      #shield-pulse-overlay.active {
+        animation: shield-pulse 0.9s ease-out;
+      }
+      @keyframes shield-pulse {
+        0% {
+          box-shadow: inset 0 0 0 0 rgba(90, 190, 255, 0);
+        }
+        25% {
+          box-shadow: inset 0 0 70px 18px rgba(90, 190, 255, 0.85);
+        }
+        100% {
+          box-shadow: inset 0 0 0 0 rgba(90, 190, 255, 0);
+        }
+      }
+      /* "The match is about to end" cue for everyone EXCEPT the current holder — a red glow
+         pulsing continuously (not a one-shot like shield-pulse above) for as long as the global
+         clock stays under its last-stretch threshold. z-index sits just below shield-pulse so a
+         shield deflect still reads clearly on top if both happen to line up. */
+      #global-danger-overlay {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 140;
+      }
+      #global-danger-overlay.active {
+        animation: global-danger-pulse 1s ease-in-out infinite;
+      }
+      @keyframes global-danger-pulse {
+        0%,
+        100% {
+          box-shadow: inset 0 0 0 0 rgba(255, 40, 40, 0);
+        }
+        50% {
+          box-shadow: inset 0 0 90px 24px rgba(255, 40, 40, 0.75);
+        }
+      }
       /* Tutorial Mode's practice loop — same full-screen treatment as #puzzle-overlay (it's the
          same underlying puzzle mount, just in practiceMode), plus a persistent ready/skip action
          bar that survives each puzzle re-mount underneath it. */
@@ -755,8 +802,7 @@
       }
       .tomato-stain {
         position: absolute;
-        width: 90px;
-        height: 90px;
+        /* width/height set inline from settings.tomatoStainSizePx (mod-tool configurable). */
         object-fit: contain;
         pointer-events: none;
         z-index: 20;
@@ -1808,6 +1854,8 @@
       <div id="elimination-toast"></div>
       <div id="turn-notice-toast"></div>
       <div id="puzzle-overlay" class="hidden"></div>
+      <div id="shield-pulse-overlay"></div>
+      <div id="global-danger-overlay"></div>
 
       <div id="points-balance" class="hidden">
         <img src="/UI/Sprites/IconCoinGold.png" alt="" />

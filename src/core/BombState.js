@@ -66,6 +66,12 @@ export function createMatchState(
     zipStainDurationSeconds,
     zipStain: null,
     zipStainSeq: 0,
+    // A one-shot "tomato deflected by shield" event, broadcast/detected the same way as zipStain
+    // (seq bump = new event) — but fired instead of zipStain when the holder's shield absorbs the
+    // throw, so the target and thrower get their own distinct feedback (a shield-worked cue)
+    // rather than nothing happening at all.
+    tomatoDeflect: null,
+    tomatoDeflectSeq: 0,
     // A one-shot "bomb changed hands" event, broadcast the same way as zipStain — clients detect
     // a new event via turnNotice.seq changing. Set by selectNextHolder whenever it actually
     // assigns a new holder (not by startMatch — the opening turn isn't a "pass").
@@ -190,6 +196,7 @@ export function startMatch(matchState) {
   matchState.bombTimer = PERSONAL_TIMER_SECONDS;
   matchState.streakCount = 0;
   matchState.zipStain = null;
+  matchState.tomatoDeflect = null;
   matchState._zipSolvedThisTurn = new Set();
 }
 
@@ -239,6 +246,7 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
     }
     matchState.streakCount = 0;
     matchState.zipStain = null;
+    matchState.tomatoDeflect = null;
     matchState._zipSolvedThisTurn = new Set();
 
     matchState.turnNoticeSeq += 1;
@@ -340,6 +348,8 @@ export function throwTomatoFromBasket(matchState, playerId) {
   const holderId = matchState.bombHolderId;
   if (matchState.shieldCharges[holderId] > 0) {
     matchState.shieldCharges[holderId] -= 1;
+    matchState.tomatoDeflectSeq += 1;
+    matchState.tomatoDeflect = { targetPlayerId: holderId, throwerId: playerId, seq: matchState.tomatoDeflectSeq };
   } else {
     matchState.zipStainSeq += 1;
     matchState.zipStain = { targetPlayerId: holderId, throwerId: playerId, seq: matchState.zipStainSeq };
@@ -406,6 +416,7 @@ export function resetToLobby(matchState) {
   matchState.globalTimeRemaining = matchState.matchDurationSeconds;
   matchState.eliminationNotice = null;
   matchState.zipStain = null;
+  matchState.tomatoDeflect = null;
   matchState._zipSolvedThisTurn = new Set();
   matchState.points = {};
   matchState.tomatoesThrown = {};

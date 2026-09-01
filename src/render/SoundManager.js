@@ -50,8 +50,6 @@ function setRate(key, rate) {
   getLoopAudio(key).playbackRate = rate;
 }
 
-let alarmPlayed = false;
-
 export const SoundManager = {
   playPersonalRoundMusic: () => playLoop('passBombMusic'),
   stopPersonalRoundMusic: () => stopLoop('passBombMusic'),
@@ -60,18 +58,13 @@ export const SoundManager = {
   stopGlobalTicking: () => stopLoop('globalTicking'),
   setGlobalTickingRate: (rate) => setRate('globalTicking', rate),
 
-  // Fires once per match — call resetAlarm() when a new match starts.
-  playAlarmOnce: () => {
-    if (alarmPlayed) return;
-    alarmPlayed = true;
-    playOneShot('alarm');
-  },
-  resetAlarm: () => {
-    alarmPlayed = false;
-  },
+  // Loops for every non-holder once the match clock hits its last stretch (paired with a red
+  // screen pulse) — a distinct instance from personalAlarm below so the two never fight over
+  // playback state if a player is briefly in both states across a tick.
+  playGlobalSiren: () => playLoop('globalSiren'),
+  stopGlobalSiren: () => stopLoop('globalSiren'),
 
-  // Loops for the local holder once their personal fuse hits the last few seconds — a distinct
-  // instance from the one-shot `alarm` above so the two never fight over playback state.
+  // Loops for the local holder once their personal fuse hits the last few seconds.
   playPersonalAlarm: () => playLoop('personalAlarm'),
   stopPersonalAlarm: () => stopLoop('personalAlarm'),
 
@@ -81,4 +74,11 @@ export const SoundManager = {
   playSmallFailed: () => playOneShot('smallFailed', 0.08),
   playWin: () => playOneShot('win'),
   playTap: () => playOneShot('tap'),
+
+  // Tomato sabotage feedback — three separate cues (own config keys, swappable in the mod tool)
+  // for the three distinct moments: the swipe-throw itself, a throw landing on the holder, and a
+  // throw getting absorbed by the holder's shield.
+  playTomatoThrow: () => playOneShot('tomatoThrow'),
+  playTomatoSquash: () => playOneShot('tomatoSquash', 0.08),
+  playShieldDeflect: () => playOneShot('shieldDeflect'),
 };
