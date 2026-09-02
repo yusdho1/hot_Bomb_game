@@ -92,7 +92,7 @@ export function mountPuzzleOverlay(
 
     const fuseBombIcon = document.createElement('img');
     fuseBombIcon.className = 'puzzle-fuse-bomb';
-    fuseBombIcon.src = '/UI/Bomb.png';
+    fuseBombIcon.src = '/UI/BombNoFuse.png';
     fuseBombIcon.alt = '';
     fuseRow.appendChild(fuseBombIcon);
 

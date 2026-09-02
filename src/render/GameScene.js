@@ -35,7 +35,7 @@ export class GameScene extends Phaser.Scene {
   }
 
   preload() {
-    this.load.image('bomb', '/UI/Bomb.png');
+    this.load.image('bomb', '/UI/BombFull.png');
     // The full avatar part pool is small and fixed (avatarOptions.js) — load it all upfront
     // rather than resolving per-player textures dynamically at runtime.
     AVATAR_PART_URLS.forEach((url) => this.load.image(url, url));

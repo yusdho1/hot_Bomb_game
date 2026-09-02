@@ -9,7 +9,7 @@
          third-party blue-light apps) — those tint the whole screen outside any webpage's reach. -->
     <meta name="color-scheme" content="dark" />
     <title>Timeout Panic</title>
-    <link rel="icon" type="image/png" href="/UI/Bomb.png" />
+    <link rel="icon" type="image/png" href="/UI/BombFull.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;700;800&display=swap" rel="stylesheet" />
@@ -30,6 +30,14 @@
         width: 100%;
         height: 100%;
         overflow: hidden;
+        /* Disables double-tap-to-zoom (and pinch-zoom) on mobile browsers — this is a full-screen
+           app-like game, not scrollable content, so there's nothing to zoom into. The viewport
+           meta tag's user-scalable=no covers most of this, but several mobile browsers (notably
+           recent iOS Safari) ignore that for accessibility reasons; touch-action is the CSS-level
+           mechanism that's actually respected everywhere it matters. Set on html rather than a
+           narrower selector so a fast double-tap anywhere on the page is covered, including
+           spectator-board taps that don't land on a specific interactive element. */
+        touch-action: manipulation;
       }
       body {
         margin: 0;
@@ -882,10 +890,15 @@
         gap: 10px;
         min-height: 0;
         padding: 14px 14px 10px;
-        border-radius: 20px;
-        /* No CSS border/background-color here — background_bp_Gradinet.png already draws its own
-           scalloped outline and fill. A plain rectangular CSS border on top of it double-framed
-           the shape (a straight box border around an already-outlined, non-rectangular image). */
+        /* No CSS border/background-color/border-radius here — background_bp_Gradinet.png already
+           draws its own scalloped outline and fill. A plain rectangular CSS border on top of it
+           double-framed the shape, and a CSS border-radius clip cut a plain circular arc across
+           that already-scalloped corner art, producing a visible mismatched seam right at each
+           corner — the image's own corner shape is the only rounding this needs. Also no
+           box-shadow: it's a plain rectangular shadow that isn't aware of the image's own alpha
+           shape, so with no border-radius to clip it, it shows straight through the image's
+           transparent scalloped corners as a rectangular halo tracing the box's real (unrounded)
+           bounds — worse than no shadow at all. */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -893,7 +906,6 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         box-sizing: border-box;
         position: relative;
       }
@@ -930,10 +942,13 @@
         display: flex;
         align-items: center;
         justify-content: center;
-        border-radius: 20px;
-        /* No CSS border/background-color — background_bp_Gradinet.png already draws its own
-           scalloped outline and fill; a plain rectangular border on top of it double-framed the
-           shape. Background stays transparent outside the image's own painted area. */
+        /* No CSS border/background-color/border-radius/box-shadow — background_bp_Gradinet.png
+           already draws its own scalloped outline and fill; a plain rectangular border on top of it
+           double-framed the shape, a border-radius clip cut a plain circular arc across that
+           already-scalloped corner art (visible mismatched seam at each corner), and a box-shadow
+           (unaware of the image's own alpha shape) showed straight through those same transparent
+           corners as a rectangular halo. Background stays transparent outside the image's own
+           painted area. */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -941,7 +956,6 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         box-sizing: border-box;
         padding: 14px;
         /* Last-resort safety net, same role as .puzzle-panel's own overflow-y:auto — puzzle
@@ -960,7 +974,11 @@
         gap: 8px;
         padding: 6px 10px;
         border-radius: 14px;
-        background: repeating-linear-gradient(135deg, #ff8800, #ff8800 10px, #e67300 10px, #e67300 20px);
+        /* Dark purple hazard stripes, not orange — the title banner PNGs are a yellow/orange
+           gradient fill, so an orange banner behind them left too little contrast to read
+           comfortably. Same stripe motif, just recolored to sit behind that palette instead of
+           inside it. */
+        background: repeating-linear-gradient(135deg, #241a4d, #241a4d 10px, #150f33 10px, #150f33 20px);
         border: 3px solid var(--accent-orange-border);
         box-sizing: border-box;
       }
@@ -994,25 +1012,36 @@
         width: 100%;
         display: flex;
         align-items: center;
-        gap: 8px;
         box-sizing: border-box;
         padding: 0 2px;
       }
       .puzzle-fuse-bomb {
-        width: clamp(20px, 6cqmin, 44px);
-        height: clamp(20px, 6cqmin, 44px);
+        width: clamp(30px, 9cqmin, 64px);
+        height: clamp(30px, 9cqmin, 64px);
         flex-shrink: 0;
         filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
+        z-index: 1;
       }
       .puzzle-fuse-rope {
         flex: 1;
         height: clamp(14px, 4cqmin, 26px);
-        border-radius: 8px;
+        /* Flat, unrounded, unbordered on the left — that end sits on TOP of (and is pulled back
+           under, via the negative margin below) the bomb icon, so a rounded/bordered cap there
+           would read as a separate shape floating on the bomb instead of the fuse cord actually
+           emerging from inside it. Right end keeps the normal rounded rope-end treatment. */
+        border-radius: 0 8px 8px 0;
         background: repeating-linear-gradient(50deg, #a5763f 0 4px, #7d5527 4px 8px);
-        border: 2px solid #4a2f14;
+        border-top: 2px solid #4a2f14;
+        border-right: 2px solid #4a2f14;
+        border-bottom: 2px solid #4a2f14;
         box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.4);
         overflow: visible;
         position: relative;
+        /* On top of the bomb (not the other way around — see .puzzle-fuse-bomb's z-index above)
+           and shifted left far enough to visibly cut into the bomb's own art, scaled with the
+           bomb's own clamp() so the overlap stays proportional at any size. */
+        z-index: 2;
+        margin-left: clamp(-30px, -7cqmin, -16px);
       }
       .puzzle-fuse-burnt {
         position: absolute;
@@ -1131,9 +1160,11 @@
         align-items: center;
         gap: 10px;
         padding: 14px;
-        border-radius: 20px;
-        /* No CSS border — background_bp_Gradinet.png already draws its own scalloped outline;
-           a plain rectangular border on top of it double-framed the shape. */
+        /* No CSS border/border-radius/box-shadow — background_bp_Gradinet.png already draws its own
+           scalloped outline; a plain rectangular border on top of it double-framed the shape, a
+           border-radius clip cut a plain circular arc across that already-scalloped corner art, and
+           a box-shadow (unaware of the image's own alpha shape) showed straight through those same
+           transparent corners as a rectangular halo. */
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -1141,7 +1172,6 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
         box-sizing: border-box;
       }
       /* Let the in-match puzzle panels actually use the extra room #game-container now gets on

@@ -13,6 +13,40 @@ import { mountAvatarCreator } from './render/AvatarCreator.js';
 import { randomAvatarParts, loadSavedAvatarParts, saveAvatarParts } from './render/avatarOptions.js';
 import gameConfig from './config/game.config.json';
 
+// Belt-and-suspenders against mobile double-tap-to-zoom: the CSS touch-action:manipulation on
+// <html> should already suppress this per spec, but it's not honored consistently across every
+// real mobile browser (notably some iOS Safari / Android WebView versions), and a fast double-tap
+// mid-match zooms the viewport and breaks the layout. This is the standard vanilla-JS fallback —
+// swallow the second touchend of a tap pair that's both fast (<350ms apart) AND close together
+// (<30px), which is exactly what the native double-tap-zoom gesture detector itself looks for, so
+// legitimate fast taps on two different targets (e.g. two different Whack-a-Mole holes) are left
+// alone entirely.
+(function preventDoubleTapZoom() {
+  const DOUBLE_TAP_MS = 350;
+  const DOUBLE_TAP_PX = 30;
+  let lastTouchEnd = 0;
+  let lastTouchX = 0;
+  let lastTouchY = 0;
+  document.addEventListener(
+    'touchend',
+    (e) => {
+      const touch = e.changedTouches[0];
+      const now = Date.now();
+      if (touch) {
+        const dx = touch.clientX - lastTouchX;
+        const dy = touch.clientY - lastTouchY;
+        if (now - lastTouchEnd <= DOUBLE_TAP_MS && Math.hypot(dx, dy) < DOUBLE_TAP_PX) {
+          e.preventDefault();
+        }
+        lastTouchX = touch.clientX;
+        lastTouchY = touch.clientY;
+      }
+      lastTouchEnd = now;
+    },
+    { passive: false }
+  );
+})();
+
 const nameInputEl = document.getElementById('name-input');
 const entryEl = document.getElementById('entry');
 const roomEl = document.getElementById('room');
@@ -117,7 +151,7 @@ const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
 // One topic per page, stepped through with the prev/next arrows instead of shown all at once.
 const HOW_TO_PLAY_PAGES = [
   {
-    icon: '/UI/Bomb.png',
+    icon: '/UI/BombFull.png',
     title: 'Pass the Bomb',
     text: "Whoever's holding it must solve puzzles of the same type in a row before their fuse runs out.",
   },

@@ -72,7 +72,7 @@ function mount(contentEl, onAttempt, { difficulty } = {}) {
     litIndex = Math.floor(Math.random() * GRID_SIZE);
 
     const img = document.createElement('img');
-    img.src = '/UI/Bomb.png';
+    img.src = '/UI/BombFull.png';
     img.alt = '';
     holes[litIndex].appendChild(img);
 
