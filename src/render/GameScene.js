@@ -5,10 +5,22 @@ const PLAYER_RADIUS = 32;
 const BOMB_ICON_SIZE = 52;
 const ALIVE_COLOR = 0x4488ff;
 const ELIMINATED_COLOR = 0x3a3d4a;
-// Built from every declared category (not hardcoded to face/eyes/mouth) so a category added
-// later — e.g. hair — actually gets preloaded and can show up on the spectator board too. `null`
-// entries (a category's "none" option) have no texture to load.
-const AVATAR_PART_URLS = AVATAR_CATEGORIES.flatMap((c) => c.options).filter(Boolean);
+
+// Every avatar part texture actually in use by this specific roster — not the full category
+// library (avatarOptions.js declares ~25+ options across face/eyes/mouth/hair, but a given match
+// only ever needs whichever handful its actual players picked). Iterates AVATAR_CATEGORIES rather
+// than hardcoding field names so a category added later (e.g. hair) is still covered.
+function neededAvatarUrls(players) {
+  const urls = new Set();
+  players.forEach((player) => {
+    if (!player.avatar) return;
+    AVATAR_CATEGORIES.forEach((c) => {
+      const url = player.avatar[c.key];
+      if (url) urls.add(url);
+    });
+  });
+  return urls;
+}
 
 // Renders received matchState only. Never computes timers or eliminations itself.
 export class GameScene extends Phaser.Scene {
@@ -26,19 +38,21 @@ export class GameScene extends Phaser.Scene {
     this.statusText = null;
     this._lastHolderId = undefined;
     this._playersOrder = [];
+    this._initialPlayers = [];
   }
 
   init(data) {
     this.localPlayerId = data.localPlayerId;
     this.onLocalIsHolder = data.onLocalIsHolder;
     this.onSceneReady = data.onSceneReady;
+    // The final roster for this whole match (nobody can join mid-match), so this is every avatar
+    // GameScene will ever need to render here — see neededAvatarUrls above.
+    this._initialPlayers = data.players || [];
   }
 
   preload() {
     this.load.image('bomb', '/UI/BombFull.png');
-    // The full avatar part pool is small and fixed (avatarOptions.js) — load it all upfront
-    // rather than resolving per-player textures dynamically at runtime.
-    AVATAR_PART_URLS.forEach((url) => this.load.image(url, url));
+    neededAvatarUrls(this._initialPlayers).forEach((url) => this.load.image(url, url));
   }
 
   create() {

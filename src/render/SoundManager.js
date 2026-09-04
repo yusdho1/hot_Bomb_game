@@ -50,7 +50,22 @@ function setRate(key, rate) {
   getLoopAudio(key).playbackRate = rate;
 }
 
+// Silences/unsilences a loop in place via the element's own `muted` flag — playback (and
+// currentTime) keeps advancing underneath, so unmuting resumes exactly where the track already is
+// instead of restarting it. Distinct from stopLoop, which is a real pause+rewind for actually
+// leaving the context the loop belongs to (e.g. the lobby music toggle button uses this; leaving
+// the lobby entirely still uses stopLobbyMusic).
+function setLoopMuted(key, muted) {
+  getLoopAudio(key).muted = muted;
+}
+
 export const SoundManager = {
+  // Ambient loop for the entry/lobby/room screens (the whole #lobby container, before a match
+  // starts) — separate from passBombMusic below, which is the in-match holder's own loop.
+  playLobbyMusic: () => playLoop('lobbyMusic'),
+  stopLobbyMusic: () => stopLoop('lobbyMusic'),
+  setLobbyMusicMuted: (muted) => setLoopMuted('lobbyMusic', muted),
+
   playPersonalRoundMusic: () => playLoop('passBombMusic'),
   stopPersonalRoundMusic: () => stopLoop('passBombMusic'),
 
@@ -72,6 +87,11 @@ export const SoundManager = {
   // Small ±8% pitch variance so repeated attempts don't sound identical every time.
   playSmallSuccess: () => playOneShot('smallSuccess', 0.08),
   playSmallFailed: () => playOneShot('smallFailed', 0.08),
+  // A correct attempt's position within the current streak (1-4, matching streakTarget's own
+  // range) plays its own dedicated cue instead of the flat smallSuccess sound — 4 distinct clips
+  // that build in energy, so a streak reads as an escalating combo instead of the same ding
+  // repeated. Clamped since a puzzle could in principle report more attempts than streakTarget.
+  playComboSuccess: (comboIndex) => playOneShot(`smallSuccessCombo${Math.max(1, Math.min(4, comboIndex))}`),
   playWin: () => playOneShot('win'),
   playTap: () => playOneShot('tap'),
 

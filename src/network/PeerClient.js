@@ -17,6 +17,7 @@ export class PeerClient {
 
     this.onConnected = null;
     this.onLobbyUpdate = null;
+    this.onMatchCountdown = null;
     this.onTutorialStarted = null;
     this.onMatchStarted = null;
     this.onStateUpdate = null;
@@ -98,6 +99,9 @@ export class PeerClient {
     switch (message.type) {
       case MessageType.LOBBY_UPDATE:
         if (this.onLobbyUpdate) this.onLobbyUpdate(message);
+        break;
+      case MessageType.MATCH_COUNTDOWN_START:
+        if (this.onMatchCountdown) this.onMatchCountdown(message.durationSeconds);
         break;
       case MessageType.TUTORIAL_START:
         if (this.onTutorialStarted) this.onTutorialStarted(message.matchState);

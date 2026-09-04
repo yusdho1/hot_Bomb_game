@@ -1,5 +1,6 @@
 export const MessageType = Object.freeze({
   LOBBY_UPDATE: 'lobby_update',
+  MATCH_COUNTDOWN_START: 'match_countdown_start',
   TUTORIAL_START: 'tutorial_start',
   START_MATCH: 'start_match',
   STATE_UPDATE: 'state_update',
@@ -26,6 +27,8 @@ function snapshotMatchState(matchState) {
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
     tutorialEnabled: matchState.tutorialEnabled,
+    enabledMinigameIds: matchState.enabledMinigameIds,
+    minigameDifficulty: matchState.minigameDifficulty,
     tutorialReady: matchState.tutorialReady,
     globalTimeRemaining: matchState.globalTimeRemaining,
     matchDurationSeconds: matchState.matchDurationSeconds,
@@ -56,6 +59,8 @@ export function createLobbyUpdateMessage(matchState) {
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
     tutorialEnabled: matchState.tutorialEnabled,
+    enabledMinigameIds: matchState.enabledMinigameIds,
+    minigameDifficulty: matchState.minigameDifficulty,
     winCounts: matchState.winCounts,
   };
 }
@@ -73,8 +78,19 @@ export function createReturnToLobbyMessage(matchState) {
     streakTarget: matchState.streakTarget,
     difficulty: matchState.difficulty,
     tutorialEnabled: matchState.tutorialEnabled,
+    enabledMinigameIds: matchState.enabledMinigameIds,
+    minigameDifficulty: matchState.minigameDifficulty,
     winCounts: matchState.winCounts,
   };
+}
+
+// Host -> Clients: "Start Game" was just pressed — a fixed-length countdown (falling-bomb popup)
+// plays before the real match (or Tutorial Mode's practice phase) actually begins. One-shot, like
+// turnNotice/zipStain — each client runs its own local countdown off `durationSeconds` rather than
+// the Host ticking and re-broadcasting every second, since being off by a frame or two here is
+// purely cosmetic and not worth the extra network chatter.
+export function createMatchCountdownMessage(durationSeconds) {
+  return { type: MessageType.MATCH_COUNTDOWN_START, durationSeconds };
 }
 
 // Host -> Clients: the practice phase has begun instead of the real match (Tutorial Mode was on).

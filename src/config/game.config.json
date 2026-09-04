@@ -21,6 +21,10 @@
       3
     ],
     "tomatoStainSizePx": 90,
+    "bgDotsDriftSeconds": 0,
+    "bgDotsDriftDirection": "down-right",
+    "bgLinesDriftSeconds": 1,
+    "bgLinesDriftDirection": "down-left",
     "points": {
       "perSecondRemaining": 5,
       "zipSolveBonus": 15,
@@ -237,6 +241,11 @@
     }
   },
   "sounds": {
+    "lobbyMusic": {
+      "files": [
+        "/Sounds/Panic_LobbyLoopSoundtack.mp3"
+      ]
+    },
     "passBombMusic": {
       "files": [
         "/Sounds/pass the bomb 10 sec music.wav"
@@ -265,6 +274,26 @@
     "smallSuccess": {
       "files": [
         "/Sounds/smallsucsses.mp3"
+      ]
+    },
+    "smallSuccessCombo1": {
+      "files": [
+        "/Sounds/smallsucsses_Combo_1.mp3"
+      ]
+    },
+    "smallSuccessCombo2": {
+      "files": [
+        "/Sounds/smallsucsses_Combo_2.mp3"
+      ]
+    },
+    "smallSuccessCombo3": {
+      "files": [
+        "/Sounds/smallsucsses_Combo_3.mp3"
+      ]
+    },
+    "smallSuccessCombo4": {
+      "files": [
+        "/Sounds/smallsucsses_Combo_4.mp3"
       ]
     },
     "smallFailed": {

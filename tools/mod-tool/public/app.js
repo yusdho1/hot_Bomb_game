@@ -5,22 +5,81 @@
 
 const state = { config: null, discovered: null, schemas: null };
 
-const SETTINGS_FIELDS = [
-  { path: 'settings.matchDurationDefault', label: 'Match duration default (s)', type: 'number' },
-  { path: 'settings.personalTimerSeconds', label: 'Personal fuse (s)', type: 'number' },
-  { path: 'settings.streakTarget', label: 'Streak target', type: 'number' },
-  { path: 'settings.zipEnabledDefault', label: 'Zip sabotage default on', type: 'checkbox' },
-  { path: 'settings.zipStainSecondsDefault', label: 'Tomato stain duration (s)', type: 'number' },
-  { path: 'settings.tomatoStainSizePx', label: 'Tomato stain size (px)', type: 'number' },
-  { path: 'settings.points.perSecondRemaining', label: 'Points per fuse-second remaining', type: 'number' },
-  { path: 'settings.points.zipSolveBonus', label: 'Zip solve bonus points', type: 'number' },
-  { path: 'settings.points.fuseBonusSeconds', label: 'Shop: fuse bonus seconds', type: 'number' },
-  { path: 'settings.points.antiTomatoShieldCharges', label: 'Shield charges per purchase', type: 'number' },
-  { path: 'settings.points.prices.fuseTime', label: 'Shop price: fuse time', type: 'number' },
-  { path: 'settings.points.prices.throwTomato', label: 'Shop price: throw tomato', type: 'number' },
-  { path: 'settings.points.prices.antiTomatoShield', label: 'Shop price: anti-tomato shield', type: 'number' },
-  { path: 'settings.points.prices.skipPass', label: 'Shop price: skip pass', type: 'number' },
+// Grouped into named categories (rendered as one heading + form-grid per group) purely so the
+// Settings tab is scannable — settings.json itself stays flat, this grouping is presentation only.
+const SETTINGS_CATEGORIES = [
+  {
+    label: 'Match Timing',
+    fields: [
+      { path: 'settings.matchDurationDefault', label: 'Match duration default (s)', type: 'number' },
+      { path: 'settings.personalTimerSeconds', label: 'Personal fuse (s)', type: 'number' },
+      { path: 'settings.streakTarget', label: 'Streak target', type: 'number' },
+    ],
+  },
+  {
+    label: 'Tomato Sabotage',
+    fields: [
+      { path: 'settings.zipEnabledDefault', label: 'Zip sabotage default on', type: 'checkbox' },
+      { path: 'settings.zipStainSecondsDefault', label: 'Tomato stain duration (s)', type: 'number' },
+      { path: 'settings.tomatoStainSizePx', label: 'Tomato stain size (px)', type: 'number' },
+    ],
+  },
+  {
+    label: 'Background Effects',
+    fields: [
+      { path: 'settings.bgDotsDriftSeconds', label: 'Background dots drift speed (s per loop)', type: 'number' },
+      {
+        path: 'settings.bgDotsDriftDirection',
+        label: 'Background dots drift direction',
+        type: 'select',
+        options: [
+          { value: 'down-right', label: 'Down-Right ↘' },
+          { value: 'down-left', label: 'Down-Left ↙' },
+          { value: 'up-right', label: 'Up-Right ↗' },
+          { value: 'up-left', label: 'Up-Left ↖' },
+        ],
+      },
+      { path: 'settings.bgLinesDriftSeconds', label: 'Background lines drift speed (s per loop)', type: 'number' },
+      {
+        path: 'settings.bgLinesDriftDirection',
+        label: 'Background lines drift direction',
+        type: 'select',
+        // The crosshatch lines are two crossing diagonal gradients, each of which only loops
+        // seamlessly along its own axis. Up/Down/Left/Right move both line layers together (one of
+        // the 4 valid sign combinations between them, netting a cardinal drift rather than a true
+        // diagonal); the 4 diagonal options instead move only the one layer whose own axis already
+        // points that exact diagonal, leaving the other layer still. See the comment above
+        // @keyframes bg-lines-drift-down in index.html for the full explanation.
+        options: [
+          { value: 'up', label: 'Up ↑' },
+          { value: 'down', label: 'Down ↓' },
+          { value: 'left', label: 'Left ←' },
+          { value: 'right', label: 'Right →' },
+          { value: 'up-right', label: 'Up-Right ↗' },
+          { value: 'down-right', label: 'Down-Right ↘' },
+          { value: 'down-left', label: 'Down-Left ↙' },
+          { value: 'up-left', label: 'Up-Left ↖' },
+        ],
+      },
+    ],
+  },
+  {
+    label: 'Points & Shop',
+    fields: [
+      { path: 'settings.points.perSecondRemaining', label: 'Points per fuse-second remaining', type: 'number' },
+      { path: 'settings.points.zipSolveBonus', label: 'Zip solve bonus points', type: 'number' },
+      { path: 'settings.points.fuseBonusSeconds', label: 'Shop: fuse bonus seconds', type: 'number' },
+      { path: 'settings.points.antiTomatoShieldCharges', label: 'Shield charges per purchase', type: 'number' },
+      { path: 'settings.points.prices.fuseTime', label: 'Shop price: fuse time', type: 'number' },
+      { path: 'settings.points.prices.throwTomato', label: 'Shop price: throw tomato', type: 'number' },
+      { path: 'settings.points.prices.antiTomatoShield', label: 'Shop price: anti-tomato shield', type: 'number' },
+      { path: 'settings.points.prices.skipPass', label: 'Shop price: skip pass', type: 'number' },
+    ],
+  },
 ];
+// Flat view of every field across categories — the save handler and anything else that just
+// needs "every settings field" iterates this instead of nesting a second loop everywhere.
+const SETTINGS_FIELDS = SETTINGS_CATEGORIES.flatMap((c) => c.fields);
 
 function getPath(obj, path) {
   return path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);
@@ -86,27 +145,49 @@ document.querySelectorAll('.tab-btn').forEach((btn) => {
 function renderSettings() {
   const container = document.getElementById('settings-form');
   container.innerHTML = '';
-  SETTINGS_FIELDS.forEach((field) => {
-    const label = document.createElement('label');
-    label.textContent = field.label;
-    label.htmlFor = field.path;
+  SETTINGS_CATEGORIES.forEach((category) => {
+    const heading = document.createElement('h3');
+    heading.className = 'settings-category-heading';
+    heading.textContent = category.label;
+    container.appendChild(heading);
 
-    const input = document.createElement('input');
-    input.id = field.path;
-    input.type = field.type;
-    if (field.type === 'checkbox') input.checked = !!getPath(state.config, field.path);
-    else input.value = getPath(state.config, field.path);
-    if (field.type === 'number') input.step = 'any';
+    const grid = document.createElement('div');
+    grid.className = 'form-grid';
+    category.fields.forEach((field) => {
+      const label = document.createElement('label');
+      label.textContent = field.label;
+      label.htmlFor = field.path;
 
-    container.appendChild(label);
-    container.appendChild(input);
+      let input;
+      if (field.type === 'select') {
+        input = document.createElement('select');
+        field.options.forEach((opt) => {
+          const optionEl = document.createElement('option');
+          optionEl.value = opt.value;
+          optionEl.textContent = opt.label;
+          input.appendChild(optionEl);
+        });
+        input.value = getPath(state.config, field.path);
+      } else {
+        input = document.createElement('input');
+        input.type = field.type;
+        if (field.type === 'checkbox') input.checked = !!getPath(state.config, field.path);
+        else input.value = getPath(state.config, field.path);
+        if (field.type === 'number') input.step = 'any';
+      }
+      input.id = field.path;
+
+      grid.appendChild(label);
+      grid.appendChild(input);
+    });
+    container.appendChild(grid);
   });
 }
 
 document.getElementById('settings-save-btn').addEventListener('click', async () => {
   SETTINGS_FIELDS.forEach((field) => {
     const input = document.getElementById(field.path);
-    const value = field.type === 'checkbox' ? input.checked : Number(input.value);
+    const value = field.type === 'checkbox' ? input.checked : field.type === 'select' ? input.value : Number(input.value);
     setPath(state.config, field.path, value);
   });
   try {
@@ -369,9 +450,23 @@ document.getElementById('minigame-settings-save-btn').addEventListener('click', 
 
 // --- sounds ---
 
+// Which cue keys use each file path — lets the list flag a file that's shared across more than
+// one cue (edit/replace it and every cue using it changes too, which is easy to miss otherwise).
+function buildSoundFileUsage() {
+  const usage = {};
+  Object.entries(state.config.sounds).forEach(([key, entry]) => {
+    entry.files.forEach((filePath) => {
+      if (!usage[filePath]) usage[filePath] = [];
+      usage[filePath].push(key);
+    });
+  });
+  return usage;
+}
+
 function renderSounds() {
   const container = document.getElementById('sound-list');
   container.innerHTML = '';
+  const usage = buildSoundFileUsage();
   Object.entries(state.config.sounds).forEach(([key, entry]) => {
     const block = document.createElement('div');
     block.className = 'category-block';
@@ -391,6 +486,15 @@ function renderSounds() {
       label.className = 'item-files';
       label.textContent = filePath;
 
+      const sharedWith = usage[filePath].filter((k) => k !== key);
+      let badge = null;
+      if (sharedWith.length > 0) {
+        badge = document.createElement('span');
+        badge.className = 'shared-badge';
+        badge.textContent = `⚠ also used by ${sharedWith.join(', ')}`;
+        badge.title = 'Editing or removing this file affects every cue listed here too';
+      }
+
       const removeBtn = document.createElement('button');
       removeBtn.className = 'remove-btn';
       removeBtn.textContent = '×';
@@ -405,7 +509,7 @@ function renderSounds() {
         }
       });
 
-      row.append(label, removeBtn);
+      row.append(label, ...(badge ? [badge] : []), removeBtn);
       list.appendChild(row);
     });
     block.appendChild(list);
@@ -416,15 +520,20 @@ function renderSounds() {
 document.getElementById('sound-upload-btn').addEventListener('click', async () => {
   const key = document.getElementById('sound-key').value.trim();
   const fileInput = document.getElementById('sound-file');
-  const file = fileInput.files[0];
-  if (!key || !file) {
-    showStatus('Enter a cue key and choose a file first.', true);
+  const files = Array.from(fileInput.files);
+  if (!key || files.length === 0) {
+    showStatus('Enter a cue key and choose at least one file first.', true);
     return;
   }
   try {
-    const dataBase64 = await fileToBase64(file);
-    await api('POST', '/api/sound/upload', { key, filename: file.name, dataBase64 });
-    showStatus(`Uploaded ${file.name} to "${key}".`);
+    // One request per file, in order — the server appends each one to the cue's files array, so
+    // sequential (not parallel) keeps that order predictable and avoids concurrent writers racing
+    // to read-modify-write the same game.config.json.
+    for (const file of files) {
+      const dataBase64 = await fileToBase64(file);
+      await api('POST', '/api/sound/upload', { key, filename: file.name, dataBase64 });
+    }
+    showStatus(files.length === 1 ? `Uploaded ${files[0].name} to "${key}".` : `Uploaded ${files.length} files to "${key}".`);
     fileInput.value = '';
     await loadConfig();
   } catch (err) {
@@ -444,9 +553,35 @@ function renderAvatars() {
     const block = document.createElement('div');
     block.className = 'category-block';
 
+    const headingRow = document.createElement('div');
+    headingRow.className = 'category-heading-row';
+
     const heading = document.createElement('h4');
     heading.textContent = `${cat.label} (${cat.key})`;
-    block.appendChild(heading);
+    headingRow.appendChild(heading);
+
+    const deleteCategoryBtn = document.createElement('button');
+    deleteCategoryBtn.className = 'remove-btn';
+    deleteCategoryBtn.textContent = 'Delete category';
+    deleteCategoryBtn.title = 'Removes this category entirely (leaves the image files on disk)';
+    deleteCategoryBtn.addEventListener('click', async () => {
+      if (
+        !confirm(
+          `Permanently delete the "${cat.label}" (${cat.key}) category? Every player's saved avatar loses this layer. Image files stay on disk.`
+        )
+      )
+        return;
+      try {
+        await api('POST', '/api/avatar/category/remove', { key: cat.key });
+        showStatus(`Deleted category "${cat.key}".`);
+        await loadConfig();
+      } catch (err) {
+        showStatus(err.message, true);
+      }
+    });
+    headingRow.appendChild(deleteCategoryBtn);
+
+    block.appendChild(headingRow);
 
     const grid = document.createElement('div');
     grid.className = 'thumb-grid';
@@ -517,15 +652,21 @@ function renderAvatars() {
 document.getElementById('avatar-upload-btn').addEventListener('click', async () => {
   const category = document.getElementById('avatar-category-select').value;
   const fileInput = document.getElementById('avatar-file');
-  const file = fileInput.files[0];
-  if (!category || !file) {
-    showStatus('Choose a category and a file first.', true);
+  const files = Array.from(fileInput.files);
+  if (!category || files.length === 0) {
+    showStatus('Choose a category and at least one file first.', true);
     return;
   }
   try {
-    const dataBase64 = await fileToBase64(file);
-    await api('POST', '/api/avatar/upload', { category, filename: file.name, dataBase64 });
-    showStatus(`Uploaded ${file.name} to "${category}".`);
+    // Sequential for the same reason as the sound uploader above — predictable order, no
+    // concurrent read-modify-write race on game.config.json.
+    for (const file of files) {
+      const dataBase64 = await fileToBase64(file);
+      await api('POST', '/api/avatar/upload', { category, filename: file.name, dataBase64 });
+    }
+    showStatus(
+      files.length === 1 ? `Uploaded ${files[0].name} to "${category}".` : `Uploaded ${files.length} files to "${category}".`
+    );
     fileInput.value = '';
     await loadConfig();
   } catch (err) {

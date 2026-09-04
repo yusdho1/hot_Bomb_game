@@ -201,6 +201,16 @@ button.save-btn,
   background: transparent;
 }
 
+.shared-badge {
+  font-size: 11px;
+  color: #e8b64a;
+  background: #3a2c10;
+  border: 1px solid #6b4e15;
+  border-radius: 4px;
+  padding: 2px 6px;
+  white-space: nowrap;
+}
+
 .add-row {
   display: flex;
   gap: 8px;
@@ -222,6 +232,22 @@ button.save-btn,
   margin: 0 0 6px;
   font-size: 13px;
   color: var(--text-dim);
+}
+
+.category-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.category-heading-row h4 {
+  margin: 0;
+}
+
+.category-heading-row .remove-btn {
+  font-size: 11px;
+  padding: 4px 8px;
 }
 
 /* Per-game minigame-settings blocks are <details> (collapsed by default) rather than the plain

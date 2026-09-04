@@ -60,9 +60,103 @@
           radial-gradient(circle at 25% 85%, rgba(255, 255, 255, 0.06) 0%, transparent 30%),
           radial-gradient(circle at 90% 80%, rgba(255, 255, 255, 0.05) 0%, transparent 30%),
           linear-gradient(180deg, #3b4cca 0%, #6a2fb0 55%, #7a2fb0 100%);
+        /* One position pair per layer above, in the same order — only the first two (the diagonal
+           crosshatch lines) actually move, via @keyframes bg-lines-drift-* below; the 4 radial glow
+           blobs and the base gradient stay pinned at their authored position the whole time. The
+           animation-name comes from a custom property (set in main.js from
+           settings.bgLinesDriftDirection) so the mod tool can pick which of the 4 variants plays
+           without this rule itself changing. */
+        background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
         background-attachment: fixed;
+        animation-name: var(--bg-lines-drift-name, bg-lines-drift-down);
+        animation-duration: var(--bg-lines-drift-seconds, 70s);
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
+      }
+      /* Each repeating-linear-gradient line layer above repeats every 40px measured along its own
+         45deg/-45deg axis — moving background-position by exactly one period along that same axis
+         (40px / sin45deg ≈ 28.284px per component) loops it with no visible seam, same principle as
+         @keyframes bg-dots-drift-a-*/-b-* below but for a diagonal-line pattern instead of a tiled
+         dot texture. The other 5 (static) layers repeat their "0 0" position unchanged in both
+         frames.
+         Unlike the dots, these two layers can't be sent in an arbitrary direction — each one only
+         loops seamlessly moving along its OWN gradient axis (45deg layer: up-right/down-left only;
+         -45deg layer: up-left/down-right only), so only 4 sign combinations exist at all. Those 4
+         combinations happen to sum to a net Up/Down/Left/Right drift rather than a true diagonal —
+         named that way below rather than forcing a down-right/down-left/up-right/up-left label that
+         wouldn't actually describe the resulting motion. */
+      @keyframes bg-lines-drift-down {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: -28.284px 28.284px, 28.284px 28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-up {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: 28.284px -28.284px, -28.284px -28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-right {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: 28.284px -28.284px, 28.284px 28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-left {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: -28.284px 28.284px, -28.284px -28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      /* True diagonal motion isn't available as "both layers move together" (see the long comment
+         above bg-lines-drift-down) — these 4 instead move ONLY the one crossing line-grid whose
+         own 45deg/-45deg axis already points that exact diagonal, and leave the other grid
+         perfectly still. Still fully seamless, just an honest tradeoff: half the crosshatch drifts,
+         the other half anchors it, rather than faking a diagonal neither layer can actually loop
+         along. */
+      @keyframes bg-lines-drift-up-right {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: 28.284px -28.284px, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-down-left {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: -28.284px 28.284px, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-up-left {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: 0 0, -28.284px -28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+      }
+      @keyframes bg-lines-drift-down-right {
+        from {
+          background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
+        to {
+          background-position: 0 0, 28.284px 28.284px, 0 0, 0 0, 0 0, 0 0, 0 0;
+        }
       }
       #lobby {
+        position: relative;
         display: flex;
         flex-direction: column;
         gap: 12px;
@@ -73,12 +167,122 @@
           radial-gradient(circle, rgba(255, 255, 255, 0.035) 4%, transparent 5%);
         background-size: 64px 64px, 42px 42px;
         background-position: 0 0, 22px 24px;
+        /* A slow diagonal drift (see @keyframes bg-dots-drift-a-* below) — each layer advances by
+           exactly one of its own tile sizes over the animation, so it loops with no visible seam.
+           Which of the 4 diagonal variants plays comes from a custom property (main.js, from
+           settings.bgDotsDriftDirection). */
+        animation-name: var(--bg-dots-drift-a-name, bg-dots-drift-a-dr);
+        animation-duration: var(--bg-dots-drift-seconds, 45s);
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
         border: 2px solid var(--panel-border);
         border-radius: 16px;
         width: 90vw;
         max-width: 340px;
         box-sizing: border-box;
         box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+      }
+      #lobby-music-toggle-btn {
+        position: absolute;
+        left: 10px;
+        bottom: 10px;
+        width: 34px;
+        height: 34px;
+        min-height: 0;
+        /* No padding — AccentSwoosh2(.png/_No.png) already has its own transparent margin baked
+           into the art, so the button box needs to hand the full 34x34 to the <img> (object-fit:
+           contain below) rather than shrinking it further, or the swoosh reads as an illegible
+           speck instead of a recognizable icon. */
+        padding: 0;
+        border: 1px solid var(--panel-border);
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.08);
+        cursor: pointer;
+        z-index: 3;
+      }
+      #lobby-music-toggle-btn:hover {
+        background: rgba(255, 255, 255, 0.18);
+      }
+      #lobby-music-toggle-btn:active {
+        transform: translateY(1px);
+      }
+      #lobby-music-toggle-btn img {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+      }
+      /* Slow diagonal drift for the small polka-dot texture layers used across #lobby (tile
+         64px/42px) and .puzzle-panel/.puzzle-game-box/.zip-panel/.shop-panel (tile 56px/36px,
+         plus a static background_bp_Gradinet.png image layer that must stay put — "center" is
+         repeated unchanged at both ends). Each dot layer's own end position is exactly one tile
+         size past its start (in whichever of the 4 diagonal directions is selected), so the loop
+         has no visible seam regardless of direction; only background-position moves (cheap,
+         GPU-friendly, doesn't touch layout or the border-radius/box-shadow fixes above). Unlike the
+         crosshatch lines below, a simple tiled dot texture is unconstrained — any combination of
+         +/- one tile size in x and y loops seamlessly, so all 4 true diagonals are valid here. */
+      @keyframes bg-dots-drift-a-dr {
+        from {
+          background-position: 0 0, 22px 24px;
+        }
+        to {
+          background-position: 64px 64px, 64px 66px;
+        }
+      }
+      @keyframes bg-dots-drift-a-dl {
+        from {
+          background-position: 0 0, 22px 24px;
+        }
+        to {
+          background-position: -64px 64px, -20px 66px;
+        }
+      }
+      @keyframes bg-dots-drift-a-ur {
+        from {
+          background-position: 0 0, 22px 24px;
+        }
+        to {
+          background-position: 64px -64px, 64px -18px;
+        }
+      }
+      @keyframes bg-dots-drift-a-ul {
+        from {
+          background-position: 0 0, 22px 24px;
+        }
+        to {
+          background-position: -64px -64px, -20px -18px;
+        }
+      }
+      @keyframes bg-dots-drift-b-dr {
+        from {
+          background-position: 0 0, 18px 20px, center;
+        }
+        to {
+          background-position: 56px 56px, 54px 56px, center;
+        }
+      }
+      @keyframes bg-dots-drift-b-dl {
+        from {
+          background-position: 0 0, 18px 20px, center;
+        }
+        to {
+          background-position: -56px 56px, -18px 56px, center;
+        }
+      }
+      @keyframes bg-dots-drift-b-ur {
+        from {
+          background-position: 0 0, 18px 20px, center;
+        }
+        to {
+          background-position: 56px -56px, 54px -16px, center;
+        }
+      }
+      @keyframes bg-dots-drift-b-ul {
+        from {
+          background-position: 0 0, 18px 20px, center;
+        }
+        to {
+          background-position: -56px -56px, -18px -16px, center;
+        }
       }
       #main-title-img {
         width: 100%;
@@ -153,6 +357,13 @@
         text-align: center;
         text-transform: uppercase;
         box-sizing: border-box;
+        /* Always exactly 4 letters (maxlength) — reads like an actual code entry field instead of
+           a generic text input. */
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: clamp(28px, 9vw, 36px);
+        letter-spacing: 10px;
+        padding: 12px 8px 12px 18px;
       }
       #name-input {
         text-align: center;
@@ -519,6 +730,62 @@
         border-color: var(--accent-orange-border);
         color: #7a2000;
       }
+      #advanced-settings-row {
+        display: flex;
+        justify-content: center;
+      }
+      #advanced-settings-btn {
+        width: 100%;
+      }
+      #minigame-toggle-section {
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      #minigame-toggle-heading {
+        font-size: 13px;
+        color: #cfc9f0;
+      }
+      #minigame-toggle-list {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        max-height: 30vh;
+        overflow-y: auto;
+      }
+      .minigame-toggle-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+      }
+      .minigame-toggle-item {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 13px;
+        color: #cfc9f0;
+        cursor: pointer;
+      }
+      .minigame-toggle-item input {
+        width: 16px;
+        height: 16px;
+        accent-color: var(--accent-orange-bottom);
+        cursor: pointer;
+      }
+      .minigame-difficulty-select {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 11px;
+        padding: 3px 6px;
+        min-height: 0;
+        border-radius: 8px;
+        border: 2px solid var(--panel-border);
+        background: rgba(255, 255, 255, 0.06);
+        color: #cfc9f0;
+        cursor: pointer;
+      }
       #game-over-shield-img {
         width: 64px;
         margin-top: -8px;
@@ -641,38 +908,50 @@
       }
       /* "Your shield just worked" cue — a soft blue glow pulsing in from the screen edges,
          full-viewport and above #puzzle-overlay so it reads regardless of what the holder is
-         looking at. Idle by default (no box-shadow, so it costs nothing to sit in the DOM);
-         adding .active plays the pulse once and main.js removes the class on animationend so
-         it's ready to restart cleanly if triggered again right away. */
+         looking at. The box-shadow's shape is set ONCE here (static — it never needs to change),
+         and only opacity animates: box-shadow is a paint property (the browser would repaint the
+         full viewport on every frame of the old value-animating version), while opacity animates
+         on the compositor with no repaint at all — same visual, far cheaper, and it matters here
+         since #global-danger-overlay below runs continuously on every spectating device for up to
+         10 straight seconds near the end of every match. Idle by default (opacity:0, costs nothing
+         sitting in the DOM); adding .active plays the pulse once and main.js removes the class on
+         animationend so it's ready to restart cleanly if triggered again right away. */
       #shield-pulse-overlay {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 150;
+        opacity: 0;
+        box-shadow: inset 0 0 70px 18px rgba(90, 190, 255, 0.85);
+        will-change: opacity;
       }
       #shield-pulse-overlay.active {
         animation: shield-pulse 0.9s ease-out;
       }
       @keyframes shield-pulse {
         0% {
-          box-shadow: inset 0 0 0 0 rgba(90, 190, 255, 0);
+          opacity: 0;
         }
         25% {
-          box-shadow: inset 0 0 70px 18px rgba(90, 190, 255, 0.85);
+          opacity: 1;
         }
         100% {
-          box-shadow: inset 0 0 0 0 rgba(90, 190, 255, 0);
+          opacity: 0;
         }
       }
       /* "The match is about to end" cue for everyone EXCEPT the current holder — a red glow
          pulsing continuously (not a one-shot like shield-pulse above) for as long as the global
          clock stays under its last-stretch threshold. z-index sits just below shield-pulse so a
-         shield deflect still reads clearly on top if both happen to line up. */
+         shield deflect still reads clearly on top if both happen to line up. Same static-shadow +
+         animated-opacity approach as shield-pulse above, for the same repaint-avoidance reason. */
       #global-danger-overlay {
         position: fixed;
         inset: 0;
         pointer-events: none;
         z-index: 140;
+        opacity: 0;
+        box-shadow: inset 0 0 90px 24px rgba(255, 40, 40, 0.75);
+        will-change: opacity;
       }
       #global-danger-overlay.active {
         animation: global-danger-pulse 1s ease-in-out infinite;
@@ -680,10 +959,10 @@
       @keyframes global-danger-pulse {
         0%,
         100% {
-          box-shadow: inset 0 0 0 0 rgba(255, 40, 40, 0);
+          opacity: 0;
         }
         50% {
-          box-shadow: inset 0 0 90px 24px rgba(255, 40, 40, 0.75);
+          opacity: 1;
         }
       }
       /* Tutorial Mode's practice loop — same full-screen treatment as #puzzle-overlay (it's the
@@ -873,11 +1152,13 @@
         }
       }
       .puzzle-panel {
-        /* 80cqmin reproduces the old flat 300px cap at the old default container size (was
-           800x500, cqmin 500 -> 80% = 400px, close enough with the visual padding already in
-           play) and on a portrait phone (cqmin = the narrower width there) — but then actually
-           keeps growing on a big desktop window instead of hitting that same flat ceiling. */
-        width: min(88%, 80cqmin);
+        /* Plain viewport-relative cap, not cqmin — this class is only ever used for standalone
+           top-level popups (Join, Avatar Creator, How-to-Play), none of which sit inside the
+           container-type:size scope (that lives on #puzzle-overlay, for the real in-match puzzle
+           page only). Outside that scope cqmin has no container to resolve against and falls back
+           to the page viewport, which on a wide desktop window stretched this to nearly the full
+           window width instead of staying a small popup. */
+        width: min(90vw, 340px);
         max-height: 92%;
         /* Content is sized to shrink and fit (clamp()/vh-based children below) rather than rely
            on this — kept only as a last-resort safety net so nothing ever gets unreadably cut
@@ -906,6 +1187,11 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
+        /* Slow diagonal drift — see @keyframes bg-dots-drift-b-* near #lobby's own version above. */
+        animation-name: var(--bg-dots-drift-b-name, bg-dots-drift-b-dr);
+        animation-duration: var(--bg-dots-drift-seconds, 45s);
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
         box-sizing: border-box;
         position: relative;
       }
@@ -956,6 +1242,11 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
+        /* Slow diagonal drift — see @keyframes bg-dots-drift-b-* near #lobby's own version above. */
+        animation-name: var(--bg-dots-drift-b-name, bg-dots-drift-b-dr);
+        animation-duration: var(--bg-dots-drift-seconds, 45s);
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
         box-sizing: border-box;
         padding: 14px;
         /* Last-resort safety net, same role as .puzzle-panel's own overflow-y:auto — puzzle
@@ -1172,6 +1463,11 @@
         background-size: 56px 56px, 36px 36px, 100% 100%;
         background-position: 0 0, 18px 20px, center;
         background-repeat: repeat, repeat, no-repeat;
+        /* Slow diagonal drift — see @keyframes bg-dots-drift-b-* near #lobby's own version above. */
+        animation-name: var(--bg-dots-drift-b-name, bg-dots-drift-b-dr);
+        animation-duration: var(--bg-dots-drift-seconds, 45s);
+        animation-timing-function: linear;
+        animation-iteration-count: infinite;
         box-sizing: border-box;
       }
       /* Let the in-match puzzle panels actually use the extra room #game-container now gets on
@@ -1868,6 +2164,142 @@
       .modal-overlay .puzzle-panel {
         animation: pop-in 0.25s ease;
       }
+      /* Falling-bomb countdown popup (main.js's showMatchCountdown) — plays for
+         MATCH_COUNTDOWN_SECONDS between "Start Game" and the match/tutorial actually starting.
+         Higher z-index than .modal-overlay (50) since it must sit above the lobby AND cover the
+         moment the view swaps to #game-container underneath it. */
+      #match-countdown-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 70;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        background: radial-gradient(circle at 50% 45%, #2a1550 0%, #0c0616 75%);
+        overflow: hidden;
+      }
+      .countdown-lines {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      /* Speed-line illusion: several tall soft-edged streaks rising past a stationary bomb reads
+         as "falling" without actually moving the bomb itself — cheaper and steadier than animating
+         the bomb's position, and avoids fighting with its own shake animation below. */
+      .countdown-line {
+        position: absolute;
+        bottom: -30%;
+        width: 3px;
+        height: 55%;
+        background: linear-gradient(to top, transparent 0%, rgba(255, 255, 255, 0.55) 45%, transparent 100%);
+        animation: countdown-line-rise 0.9s linear infinite;
+      }
+      .countdown-line:nth-child(1) {
+        left: 8%;
+        animation-duration: 0.8s;
+        animation-delay: 0s;
+      }
+      .countdown-line:nth-child(2) {
+        left: 21%;
+        animation-duration: 1.1s;
+        animation-delay: 0.25s;
+      }
+      .countdown-line:nth-child(3) {
+        left: 34%;
+        animation-duration: 0.7s;
+        animation-delay: 0.5s;
+      }
+      .countdown-line:nth-child(4) {
+        left: 50%;
+        animation-duration: 1s;
+        animation-delay: 0.1s;
+      }
+      .countdown-line:nth-child(5) {
+        left: 65%;
+        animation-duration: 0.85s;
+        animation-delay: 0.4s;
+      }
+      .countdown-line:nth-child(6) {
+        left: 79%;
+        animation-duration: 1.15s;
+        animation-delay: 0.65s;
+      }
+      .countdown-line:nth-child(7) {
+        left: 91%;
+        animation-duration: 0.75s;
+        animation-delay: 0.2s;
+      }
+      @keyframes countdown-line-rise {
+        0% {
+          transform: translateY(0);
+          opacity: 0;
+        }
+        12% {
+          opacity: 1;
+        }
+        88% {
+          opacity: 1;
+        }
+        100% {
+          transform: translateY(-260%);
+          opacity: 0;
+        }
+      }
+      .countdown-number {
+        font-family: var(--font-display);
+        font-weight: 800;
+        color: #fff;
+        font-size: clamp(64px, 22vw, 140px);
+        line-height: 1;
+        text-shadow: 0 0 24px rgba(255, 140, 0, 0.8), 2px 2px 0 var(--text-outline);
+        z-index: 2;
+        animation: countdown-number-pop 1s ease;
+      }
+      @keyframes countdown-number-pop {
+        0% {
+          transform: scale(1.6);
+          opacity: 0;
+        }
+        30% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        80% {
+          transform: scale(1);
+          opacity: 1;
+        }
+        100% {
+          transform: scale(0.85);
+          opacity: 0;
+        }
+      }
+      .countdown-bomb {
+        width: clamp(90px, 26vw, 160px);
+        z-index: 1;
+        filter: drop-shadow(0 8px 20px rgba(0, 0, 0, 0.5));
+        animation: countdown-bomb-shake 0.4s ease-in-out infinite;
+      }
+      @keyframes countdown-bomb-shake {
+        0%,
+        100% {
+          transform: translate(0, 0) rotate(0deg);
+        }
+        20% {
+          transform: translate(-3px, 2px) rotate(-3deg);
+        }
+        40% {
+          transform: translate(3px, -2px) rotate(3deg);
+        }
+        60% {
+          transform: translate(-2px, -2px) rotate(-2deg);
+        }
+        80% {
+          transform: translate(2px, 2px) rotate(2deg);
+        }
+      }
       .modal-close-btn {
         position: absolute;
         top: 10px;
@@ -1895,6 +2327,9 @@
         text-align: center;
       }
       .avatar-creator-panel {
+        max-width: 320px;
+      }
+      .advanced-settings-panel {
         max-width: 320px;
       }
       #how-to-play-row {
@@ -2079,33 +2514,6 @@
               </button>
             </div>
           </div>
-          <div id="zip-settings-row">
-            <label id="zip-enabled-label">
-              <input type="checkbox" id="zip-enabled-checkbox" checked />
-              Tomato sabotage
-            </label>
-            <div id="zip-duration-stepper">
-              <button id="zip-duration-minus-btn" type="button" title="Shorter">
-                <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
-              </button>
-              <span id="zip-duration-value">1.5s</span>
-              <button id="zip-duration-plus-btn" type="button" title="Longer">
-                <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
-              </button>
-            </div>
-          </div>
-          <div id="streak-row">
-            <label>Streak to pass</label>
-            <div id="streak-stepper">
-              <button id="streak-minus-btn" type="button" title="Fewer">
-                <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
-              </button>
-              <span id="streak-value">3</span>
-              <button id="streak-plus-btn" type="button" title="More">
-                <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
-              </button>
-            </div>
-          </div>
           <div id="difficulty-row">
             <label>Difficulty</label>
             <div id="difficulty-selector">
@@ -2120,6 +2528,9 @@
               Tutorial Mode (untimed practice round first)
             </label>
           </div>
+          <div id="advanced-settings-row">
+            <button id="advanced-settings-btn" type="button" class="btn-secondary">⚙️ Advanced Settings</button>
+          </div>
           <button id="start-btn" class="btn-primary" disabled>Start Game</button>
         </div>
 
@@ -2129,6 +2540,10 @@
       </div>
 
       <div id="lobby-status"></div>
+
+      <button id="lobby-music-toggle-btn" type="button" title="Mute lobby music">
+        <img id="lobby-music-toggle-icon" src="/UI/Sprites/AccentSwoosh2.png" alt="" />
+      </button>
     </div>
 
     <div id="tutorial-panel" class="hidden">
@@ -2230,6 +2645,20 @@
       </div>
     </div>
 
+    <div id="match-countdown-overlay" class="hidden">
+      <div class="countdown-lines">
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+        <div class="countdown-line"></div>
+      </div>
+      <div id="match-countdown-number" class="countdown-number">5</div>
+      <img class="countdown-bomb" src="/UI/BombFull.png" alt="" />
+    </div>
+
     <div id="join-modal" class="modal-overlay hidden">
       <div class="puzzle-panel">
         <button id="join-modal-x-btn" class="modal-close-btn" title="Close"></button>
@@ -2238,6 +2667,45 @@
         <button id="join-confirm-btn" class="btn-primary">Join</button>
         <div id="join-modal-status"></div>
         <button id="join-modal-close-btn" class="btn-secondary">Cancel</button>
+      </div>
+    </div>
+
+    <div id="advanced-settings-modal" class="modal-overlay hidden">
+      <div class="puzzle-panel advanced-settings-panel">
+        <button id="advanced-settings-x-btn" class="modal-close-btn" title="Close"></button>
+        <div class="modal-title">Advanced Settings</div>
+        <div id="zip-settings-row">
+          <label id="zip-enabled-label">
+            <input type="checkbox" id="zip-enabled-checkbox" checked />
+            Tomato sabotage
+          </label>
+          <div id="zip-duration-stepper">
+            <button id="zip-duration-minus-btn" type="button" title="Shorter">
+              <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
+            </button>
+            <span id="zip-duration-value">1.5s</span>
+            <button id="zip-duration-plus-btn" type="button" title="Longer">
+              <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
+            </button>
+          </div>
+        </div>
+        <div id="streak-row">
+          <label>Streak to pass</label>
+          <div id="streak-stepper">
+            <button id="streak-minus-btn" type="button" title="Fewer">
+              <img src="/UI/Sprites/IconMinusFlatRed.png" alt="-" />
+            </button>
+            <span id="streak-value">3</span>
+            <button id="streak-plus-btn" type="button" title="More">
+              <img src="/UI/Sprites/IconPlusFlatGreen.png" alt="+" />
+            </button>
+          </div>
+        </div>
+        <div id="minigame-toggle-section">
+          <label id="minigame-toggle-heading">Mini-games this round</label>
+          <div id="minigame-toggle-list"></div>
+        </div>
+        <button id="advanced-settings-done-btn" class="btn-primary">Done</button>
       </div>
     </div>
 

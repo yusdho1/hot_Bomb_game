@@ -44,7 +44,8 @@ export function createMatchState(
   zipStainDurationSeconds = DEFAULT_ZIP_STAIN_SECONDS,
   streakTarget = DEFAULT_STREAK_TARGET,
   difficulty = DEFAULT_DIFFICULTY,
-  tutorialEnabled = DEFAULT_TUTORIAL_ENABLED
+  tutorialEnabled = DEFAULT_TUTORIAL_ENABLED,
+  enabledMinigameIds = []
 ) {
   const matchState = {
     phase: 'lobby',
@@ -55,6 +56,18 @@ export function createMatchState(
     streakTarget,
     difficulty,
     tutorialEnabled,
+    // Which pass-the-bomb minigame ids are in play for this room, this round — a lobby *setting*
+    // (persists across resetToLobby, same as streakTarget/difficulty) distinct from
+    // game.config.json's minigames[].enabled, which is the mod-tool's permanent, build-time list.
+    // This is that same list by default, but the Host can narrow it per-match from the lobby's
+    // Advanced Settings popup. Always non-empty — setEnabledMinigameIds refuses an empty list.
+    enabledMinigameIds: enabledMinigameIds.slice(),
+    // id -> 'easy'|'medium'|'hard', a per-minigame override of the round's global `difficulty`
+    // above — also a lobby setting (persists like difficulty itself). Seeded to the global
+    // difficulty for every known id; setDifficulty (the main lobby's single selector) resets every
+    // entry back to its new value, so per-game picks made in Advanced Settings are a deliberate
+    // fine-tune on top of that baseline rather than silently drifting out of sync with it.
+    minigameDifficulty: Object.fromEntries(enabledMinigameIds.map((id) => [id, difficulty])),
     // playerId -> true once that player has marked themselves ready during the 'tutorial' phase.
     // Reset in resetToLobby (unlike streakTarget/difficulty/tutorialEnabled, this isn't a lobby
     // *setting* — it's per-round practice-loop progress).
@@ -161,10 +174,28 @@ export function setStreakTarget(matchState, value) {
 export function setDifficulty(matchState, level) {
   if (!DIFFICULTY_LEVELS.has(level)) return;
   matchState.difficulty = level;
+  Object.keys(matchState.minigameDifficulty).forEach((id) => {
+    matchState.minigameDifficulty[id] = level;
+  });
+}
+
+// Host-only lobby control: overrides one minigame's difficulty independently of the round's
+// global `difficulty` (set via setDifficulty above, which resets every override back to it).
+export function setMinigameDifficulty(matchState, id, level) {
+  if (!DIFFICULTY_LEVELS.has(level)) return;
+  if (!(id in matchState.minigameDifficulty)) return;
+  matchState.minigameDifficulty[id] = level;
 }
 
 export function setTutorialEnabled(matchState, enabled) {
   matchState.tutorialEnabled = !!enabled;
+}
+
+// Host-only lobby control: which minigame ids are in the pass-the-bomb rotation this round.
+// Refuses an empty list — there must always be at least one puzzle to hand the holder.
+export function setEnabledMinigameIds(matchState, ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return;
+  matchState.enabledMinigameIds = ids.slice();
 }
 
 // Enters the practice phase instead of the real match — beginMatch() (PeerHost.js) decides

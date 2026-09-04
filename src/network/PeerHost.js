@@ -9,6 +9,8 @@ import {
   setStreakTarget,
   setDifficulty,
   setTutorialEnabled,
+  setEnabledMinigameIds,
+  setMinigameDifficulty,
   beginTutorial,
   markTutorialReady,
   isTutorialComplete,
@@ -28,6 +30,7 @@ import {
 import {
   MessageType,
   createLobbyUpdateMessage,
+  createMatchCountdownMessage,
   createTutorialStartMessage,
   createStartMatchMessage,
   createStateUpdateMessage,
@@ -38,20 +41,26 @@ import {
 
 const TICK_MS = 200;
 const ELIMINATION_PAUSE_MS = 3000;
+// Falling-bomb popup shown to everyone between "Start Game" and the match/tutorial actually
+// beginning — see createMatchCountdownMessage for why this is a single fire-and-forget broadcast
+// rather than a host-ticked one.
+const MATCH_COUNTDOWN_SECONDS = 5;
 
 // Runs the authoritative game loop for up to 8 players. Only the Host mutates matchState.
 export class PeerHost {
-  constructor(roomCode, hostName, hostAvatar, matchDurationSeconds = DEFAULT_MATCH_DURATION) {
+  constructor(roomCode, hostName, hostAvatar, matchDurationSeconds = DEFAULT_MATCH_DURATION, availableMinigameIds = []) {
     this.roomCode = roomCode;
     this.peer = new Peer(`hotbomb-${roomCode}`);
     this.connections = new Map(); // peerId -> DataConnection
     this.matchState = null;
     this._tickHandle = null;
     this._pauseHandle = null;
+    this._countdownHandle = null;
 
     // Assign these from outside to react to lifecycle events.
     this.onReady = null;
     this.onLobbyUpdate = null;
+    this.onMatchCountdown = null;
     this.onTutorialStarted = null;
     this.onMatchStarted = null;
     this.onStateUpdate = null;
@@ -60,7 +69,18 @@ export class PeerHost {
     this.onError = null;
 
     this.peer.on('open', (id) => {
-      this.matchState = createMatchState(id, hostName, hostAvatar, matchDurationSeconds);
+      this.matchState = createMatchState(
+        id,
+        hostName,
+        hostAvatar,
+        matchDurationSeconds,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        availableMinigameIds
+      );
       if (this.onReady) this.onReady(id);
       this._emitLobbyUpdate();
     });
@@ -122,6 +142,21 @@ export class PeerHost {
     this._emitLobbyUpdate();
   }
 
+  // Host-only lobby control: which minigame ids are in the pass-the-bomb rotation this round.
+  setEnabledMinigameIds(ids) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setEnabledMinigameIds(this.matchState, ids);
+    this._emitLobbyUpdate();
+  }
+
+  // Host-only lobby control: overrides one minigame's difficulty independently of the round's
+  // global difficulty selector.
+  setMinigameDifficulty(id, level) {
+    if (!this.matchState || this.matchState.phase !== 'lobby') return;
+    setMinigameDifficulty(this.matchState, id, level);
+    this._emitLobbyUpdate();
+  }
+
   // Host-only: remove a player from the lobby. Just closes their connection — the existing
   // conn.on('close') handler (registered in the constructor) does the actual removePlayer +
   // lobby-update broadcast, same as any other lobby-phase disconnect.
@@ -138,24 +173,40 @@ export class PeerHost {
   // signaling server instead of being left as an orphaned, unreachable room.
   destroy() {
     this._stopLoop();
+    clearTimeout(this._countdownHandle);
+    this._countdownHandle = null;
     this.connections.forEach((conn) => conn.close());
     this.connections.clear();
     this.peer.destroy();
   }
 
   // Host-only: begin the match — or, if Tutorial Mode is on, the untimed practice phase first.
+  // Broadcasts the countdown popup immediately, then waits out MATCH_COUNTDOWN_SECONDS of real
+  // time before actually transitioning phase/starting the tick loop, so nobody's personal fuse (or
+  // the match clock) burns any time during the countdown itself.
   beginMatch() {
     if (!this.matchState || this.matchState.phase !== 'lobby') return;
-    if (this.matchState.tutorialEnabled) {
-      beginTutorial(this.matchState);
-      this._broadcast(createTutorialStartMessage(this.matchState));
-      if (this.onTutorialStarted) this.onTutorialStarted(this.matchState);
-      return;
-    }
-    startMatch(this.matchState);
-    this._broadcast(createStartMatchMessage(this.matchState));
-    if (this.onMatchStarted) this.onMatchStarted(this.matchState);
-    this._startLoop();
+    this._broadcast(createMatchCountdownMessage(MATCH_COUNTDOWN_SECONDS));
+    if (this.onMatchCountdown) this.onMatchCountdown(MATCH_COUNTDOWN_SECONDS);
+
+    clearTimeout(this._countdownHandle);
+    this._countdownHandle = setTimeout(() => {
+      this._countdownHandle = null;
+      // The room could have emptied out from under the countdown (e.g. every other player left) —
+      // bail rather than starting a match nobody's still around to play.
+      if (!this.matchState || this.matchState.phase !== 'lobby') return;
+
+      if (this.matchState.tutorialEnabled) {
+        beginTutorial(this.matchState);
+        this._broadcast(createTutorialStartMessage(this.matchState));
+        if (this.onTutorialStarted) this.onTutorialStarted(this.matchState);
+        return;
+      }
+      startMatch(this.matchState);
+      this._broadcast(createStartMatchMessage(this.matchState));
+      if (this.onMatchStarted) this.onMatchStarted(this.matchState);
+      this._startLoop();
+    }, MATCH_COUNTDOWN_SECONDS * 1000);
   }
 
   // Called when the Host's own local player marks themselves ready during Tutorial Mode.

@@ -26,7 +26,7 @@
     <main>
       <section id="tab-settings" class="tab-panel active">
         <h2>Match settings</h2>
-        <div id="settings-form" class="form-grid"></div>
+        <div id="settings-form"></div>
         <button id="settings-save-btn" class="save-btn">Save settings</button>
       </section>
 
@@ -74,7 +74,7 @@
         <h3>Add a variant / new sound file</h3>
         <div class="add-row">
           <input id="sound-key" placeholder="cue key (e.g. smallSuccess)" />
-          <input id="sound-file" type="file" accept="audio/*" />
+          <input id="sound-file" type="file" accept="audio/*" multiple />
           <button id="sound-upload-btn">Upload</button>
         </div>
         <p class="hint">Uploading to an existing key adds a variant; a new key needs a code call site to ever play
@@ -88,7 +88,7 @@
         <h3>Add an image to a category</h3>
         <div class="add-row">
           <select id="avatar-category-select"></select>
-          <input id="avatar-file" type="file" accept="image/png" />
+          <input id="avatar-file" type="file" accept="image/png" multiple />
           <button id="avatar-upload-btn">Upload</button>
         </div>
 

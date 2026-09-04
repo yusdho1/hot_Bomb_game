@@ -21,16 +21,25 @@ let pool = [];
 // they can (and empirically do, ~4% of turns) land on the same puzzle back to back right at
 // that boundary, even though within any single cycle no repeat is possible.
 let lastPickedId = null;
+// Which id set `pool` was last built from — the Host can narrow matchState.enabledMinigameIds
+// per-match from the lobby's Advanced Settings popup, so a bag built for a previous match (or
+// before a mid-lobby change) needs rebuilding rather than serving stale/now-disabled ids.
+let poolIdsKey = null;
 
-function pickPuzzle() {
+function pickPuzzle(activePuzzles) {
+  const idsKey = activePuzzles.map((p) => p.id).join(',');
+  if (idsKey !== poolIdsKey) {
+    pool = [];
+    poolIdsKey = idsKey;
+  }
   if (pool.length === 0) {
-    pool = PUZZLES.map((p) => p.id);
+    pool = activePuzzles.map((p) => p.id);
     if (lastPickedId && pool.length > 1) pool = pool.filter((id) => id !== lastPickedId);
   }
   const idx = Math.floor(Math.random() * pool.length);
   const [id] = pool.splice(idx, 1);
   lastPickedId = id;
-  return PUZZLES.find((p) => p.id === id);
+  return activePuzzles.find((p) => p.id === id);
 }
 
 // Owns the shared chrome around whichever puzzle module is picked. This is a full-page layout,
@@ -51,11 +60,26 @@ function pickPuzzle() {
 //   for the How-to-Play carousel.
 export function mountPuzzleOverlay(
   containerEl,
-  { onAttempt, streakTarget, difficulty, practiceMode, puzzleId, onNext, onPrev }
+  { onAttempt, streakTarget, difficulty, minigameDifficulty, practiceMode, puzzleId, onNext, onPrev, enabledIds }
 ) {
   containerEl.innerHTML = '';
 
-  const chosen = practiceMode ? PUZZLES.find((p) => p.id === puzzleId) || PUZZLES[0] : pickPuzzle();
+  // enabledIds is the current match's per-round narrowing (matchState.enabledMinigameIds, set by
+  // the Host in the lobby's Advanced Settings popup) — falls back to every mod-tool-enabled
+  // puzzle if omitted (practiceMode callers, or a stale/empty list) so this never has zero to pick
+  // from.
+  const activePuzzles =
+    !practiceMode && Array.isArray(enabledIds) && enabledIds.length > 0
+      ? PUZZLES.filter((p) => enabledIds.includes(p.id))
+      : PUZZLES;
+  const chosen = practiceMode
+    ? PUZZLES.find((p) => p.id === puzzleId) || PUZZLES[0]
+    : pickPuzzle(activePuzzles.length > 0 ? activePuzzles : PUZZLES);
+
+  // practiceMode callers (Tutorial Mode, the mod tool's debug preview) already resolve their own
+  // per-game difficulty before calling in — minigameDifficulty is only consulted for a real match
+  // turn, where `difficulty` is the round's flat global fallback for a game with no override.
+  const effectiveDifficulty = !practiceMode && minigameDifficulty?.[chosen.id] ? minigameDifficulty[chosen.id] : difficulty;
 
   const page = document.createElement('div');
   page.className = 'puzzle-page';
@@ -155,9 +179,19 @@ export function mountPuzzleOverlay(
 
   containerEl.appendChild(page);
 
+  // Tracks the current streak's position locally (reset each time mountPuzzleOverlay is called,
+  // i.e. once per holder turn) so a correct attempt plays that position's own combo cue instead of
+  // the flat smallSuccess sound every time — this fires optimistically off the local tap, same as
+  // the plain sound it replaces, rather than waiting on host round-trip confirmation.
+  let comboIndex = 0;
   function wrappedOnAttempt(success) {
-    if (success) SoundManager.playSmallSuccess();
-    else SoundManager.playSmallFailed();
+    if (success) {
+      comboIndex += 1;
+      SoundManager.playComboSuccess(comboIndex);
+    } else {
+      comboIndex = 0;
+      SoundManager.playSmallFailed();
+    }
     onAttempt(success);
   }
 
@@ -166,7 +200,7 @@ export function mountPuzzleOverlay(
   // many times at once, satisfying the shared streak-to-pass counter in one shot instead of
   // needing multiple separate rounds. Optional — most puzzles ignore it and just report each
   // attempt as it happens (see the contract in DESIGN_GUIDELINES.md).
-  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt, { difficulty, streakTarget: streakTarget || 3 });
+  const puzzleHandle = chosen.mount(contentEl, wrappedOnAttempt, { difficulty: effectiveDifficulty, streakTarget: streakTarget || 3 });
 
   return {
     updateTimer(seconds) {

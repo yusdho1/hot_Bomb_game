@@ -1,7 +1,5 @@
-import Phaser from 'phaser';
 import { PeerHost } from './network/PeerHost.js';
 import { PeerClient } from './network/PeerClient.js';
-import { GameScene } from './render/GameScene.js';
 import { mountPuzzleOverlay as createPuzzleOverlay, PUZZLES } from './render/puzzles/PuzzleOverlay.js';
 import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
 import { GoldRushTomato } from './render/puzzles/GoldRushTomato.js';
@@ -13,6 +11,46 @@ import { renderAvatar } from './render/AvatarRenderer.js';
 import { mountAvatarCreator } from './render/AvatarCreator.js';
 import { randomAvatarParts, loadSavedAvatarParts, saveAvatarParts } from './render/avatarOptions.js';
 import gameConfig from './config/game.config.json';
+
+// Mod-tool-editable speed for the slow diagonal drift on the small dotted background textures
+// (#lobby, .puzzle-panel, .puzzle-game-box, .zip-panel/.shop-panel — see their shared
+// @keyframes bg-dots-drift-a/b). A CSS custom property read by all of them, set once here rather
+// than duplicating the value in every rule.
+document.documentElement.style.setProperty('--bg-dots-drift-seconds', `${gameConfig.settings.bgDotsDriftSeconds}s`);
+
+// Same idea for the page-wide diagonal crosshatch lines behind everything (body's own background —
+// see @keyframes bg-lines-drift near it) — a separate speed/property so the lines can drift at a
+// different pace than the dot textures above for a subtle parallax feel, not because they're
+// otherwise related.
+document.documentElement.style.setProperty('--bg-lines-drift-seconds', `${gameConfig.settings.bgLinesDriftSeconds}s`);
+
+// Which way each pattern drifts — swaps in one of several pre-authored @keyframes per pattern via
+// animation-name (browsers resolve a var() used as animation-name fine, same as any other
+// property value). Dots are a simple tiled texture, so all 4 true diagonals are equally valid and
+// seamless. The crosshatch LINES are two crossing repeating-linear-gradient layers (45deg/-45deg)
+// — each one only loops seamlessly moving along its OWN gradient axis. Up/Down/Left/Right move
+// BOTH line layers together (one of the 4 valid sign combinations between them, netting a cardinal
+// drift rather than a true diagonal); the 4 diagonal options instead move only whichever single
+// layer's own axis already points that exact diagonal, leaving the other layer still — see
+// @keyframes bg-lines-drift-* for the actual math. Falls back to the pre-existing default
+// direction if the config value doesn't match a known option (e.g. an old config file from before
+// this setting existed).
+const DOTS_DIRECTION_SUFFIX = { 'down-right': 'dr', 'down-left': 'dl', 'up-right': 'ur', 'up-left': 'ul' };
+const LINES_DIRECTION_SUFFIX = {
+  up: 'up',
+  down: 'down',
+  left: 'left',
+  right: 'right',
+  'up-right': 'up-right',
+  'down-left': 'down-left',
+  'up-left': 'up-left',
+  'down-right': 'down-right',
+};
+const dotsDirSuffix = DOTS_DIRECTION_SUFFIX[gameConfig.settings.bgDotsDriftDirection] || 'dr';
+const linesDirSuffix = LINES_DIRECTION_SUFFIX[gameConfig.settings.bgLinesDriftDirection] || 'down';
+document.documentElement.style.setProperty('--bg-dots-drift-a-name', `bg-dots-drift-a-${dotsDirSuffix}`);
+document.documentElement.style.setProperty('--bg-dots-drift-b-name', `bg-dots-drift-b-${dotsDirSuffix}`);
+document.documentElement.style.setProperty('--bg-lines-drift-name', `bg-lines-drift-${linesDirSuffix}`);
 
 // Belt-and-suspenders against mobile double-tap-to-zoom: the CSS touch-action:manipulation on
 // <html> should already suppress this per spec, but it's not honored consistently across every
@@ -69,6 +107,11 @@ const streakValueEl = document.getElementById('streak-value');
 const difficultySelectorEl = document.getElementById('difficulty-selector');
 const difficultyBtns = Array.from(difficultySelectorEl.querySelectorAll('button'));
 const tutorialEnabledCheckbox = document.getElementById('tutorial-enabled-checkbox');
+const advancedSettingsBtn = document.getElementById('advanced-settings-btn');
+const advancedSettingsModalEl = document.getElementById('advanced-settings-modal');
+const advancedSettingsXBtn = document.getElementById('advanced-settings-x-btn');
+const advancedSettingsDoneBtn = document.getElementById('advanced-settings-done-btn');
+const minigameToggleListEl = document.getElementById('minigame-toggle-list');
 const tutorialPanelEl = document.getElementById('tutorial-panel');
 const tutorialPuzzleMountEl = document.getElementById('tutorial-puzzle-mount');
 const tutorialReadyCountEl = document.getElementById('tutorial-ready-count');
@@ -77,6 +120,10 @@ const tutorialSkipBtn = document.getElementById('tutorial-skip-btn');
 const startBtn = document.getElementById('start-btn');
 const clientWaitingEl = document.getElementById('client-waiting');
 const lobbyStatusEl = document.getElementById('lobby-status');
+const matchCountdownOverlayEl = document.getElementById('match-countdown-overlay');
+const matchCountdownNumberEl = document.getElementById('match-countdown-number');
+const lobbyMusicToggleBtn = document.getElementById('lobby-music-toggle-btn');
+const lobbyMusicToggleIconEl = document.getElementById('lobby-music-toggle-icon');
 
 const lobbyEl = document.getElementById('lobby');
 const gameEl = document.getElementById('game-container');
@@ -148,6 +195,17 @@ const DURATION_STEPS = [30, 60, 90, 120];
 const ZIP_DURATION_STEPS = [1, 1.5, 2, 2.5, 3];
 const STREAK_STEPS = [1, 2, 3, 4];
 const DIFFICULTY_LEVELS = ['easy', 'medium', 'hard'];
+// Friendly display names for the Advanced Settings per-match minigame toggles — same names as the
+// README's mini-games table. Falls back to a capitalized id for any future puzzle not listed here.
+const MINIGAME_LABELS = {
+  stroop: 'Stroop',
+  swipe: 'Swipe',
+  whackamole: 'Whack-a-Mole',
+  wordmatch: 'Emoji Match',
+  reflexrunner: 'Reflex Runner',
+  wirecut: 'Wire Cut',
+  pipeconnect: 'Pipe Connect',
+};
 
 // One topic per page, stepped through with the prev/next arrows instead of shown all at once.
 const HOW_TO_PLAY_PAGES = [
@@ -217,7 +275,16 @@ let matchDurationSeconds = 60;
 let zipStainDurationSeconds = 1.5;
 let streakTarget = 3;
 let currentDifficulty = 'medium';
+let enabledMinigameIds = PUZZLES.map((p) => p.id);
 let currentRoomCode = null;
+const LOBBY_MUSIC_MUTED_KEY = 'hotbomb-lobby-music-muted';
+let lobbyMusicMuted = (() => {
+  try {
+    return localStorage.getItem(LOBBY_MUSIC_MUTED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+})();
 
 renderAvatar(avatarPreviewEl, currentAvatarParts);
 
@@ -331,6 +398,7 @@ function enterRoom(roomCode, isHost) {
 }
 
 function resetToEntry(message) {
+  clearMatchCountdown();
   roomEl.classList.add('hidden');
   entryEl.classList.remove('hidden');
   lobbyStatusEl.textContent = message || '';
@@ -349,7 +417,9 @@ function renderLobbyPlayers(
   winCounts,
   streakTargetValue,
   difficultyValue,
-  tutorialEnabledValue
+  tutorialEnabledValue,
+  enabledMinigameIdsValue,
+  minigameDifficultyValue
 ) {
   playerListEl.innerHTML = '';
   players.forEach((player) => {
@@ -395,6 +465,8 @@ function renderLobbyPlayers(
   if (streakTargetValue !== undefined) setStreakDisplay(streakTargetValue);
   if (difficultyValue !== undefined) setDifficultyDisplay(difficultyValue);
   if (tutorialEnabledValue !== undefined) tutorialEnabledCheckbox.checked = tutorialEnabledValue;
+  if (enabledMinigameIdsValue !== undefined) setEnabledMinigameIdsDisplay(enabledMinigameIdsValue);
+  setMinigameDifficultyDisplay(minigameDifficultyValue);
   clientWaitingEl.textContent =
     `Waiting for host to start... (Match length: ${matchDurationSeconds}s, ` +
     `streak: ${streakTarget}, difficulty: ${capitalize(currentDifficulty)})`;
@@ -445,7 +517,150 @@ function setDifficultyDisplay(level) {
   difficultyBtns.forEach((btn) => btn.classList.toggle('active', btn.dataset.level === level));
 }
 
-function startGame(matchState) {
+// Built once — PUZZLES itself never changes at runtime, only which of its ids are currently
+// enabled (and each one's own difficulty) does. Each row pairs an enable/disable checkbox with a
+// per-game difficulty <select> that overrides the round's global Difficulty selector just for
+// that one puzzle. The checkbox's `change` handler reads the full current selection back out (not
+// just its own toggled state) so a Host flipping several boxes in a row always sends the complete
+// list, matching how setEnabledMinigameIds/matchState.enabledMinigameIds are meant to be used.
+const minigameToggleCheckboxes = new Map(); // id -> <input>
+const minigameDifficultySelects = new Map(); // id -> <select>
+PUZZLES.forEach((puzzle) => {
+  const row = document.createElement('div');
+  row.className = 'minigame-toggle-row';
+
+  const label = document.createElement('label');
+  label.className = 'minigame-toggle-item';
+  const checkbox = document.createElement('input');
+  checkbox.type = 'checkbox';
+  checkbox.checked = true;
+  checkbox.addEventListener('change', () => {
+    const selected = PUZZLES.map((p) => p.id).filter((id) => minigameToggleCheckboxes.get(id).checked);
+    if (selected.length === 0) {
+      // Refuse to leave zero games enabled — revert this box and keep whatever was active before.
+      checkbox.checked = true;
+      return;
+    }
+    setEnabledMinigameIdsDisplay(selected);
+    if (role === 'host' && host) host.setEnabledMinigameIds(selected);
+  });
+  label.appendChild(checkbox);
+  label.append(MINIGAME_LABELS[puzzle.id] || capitalize(puzzle.id));
+
+  const select = document.createElement('select');
+  select.className = 'minigame-difficulty-select';
+  DIFFICULTY_LEVELS.forEach((level) => {
+    const option = document.createElement('option');
+    option.value = level;
+    option.textContent = capitalize(level);
+    select.appendChild(option);
+  });
+  select.value = 'medium';
+  select.addEventListener('change', () => {
+    if (role === 'host' && host) host.setMinigameDifficulty(puzzle.id, select.value);
+  });
+
+  row.append(label, select);
+  minigameToggleListEl.appendChild(row);
+  minigameToggleCheckboxes.set(puzzle.id, checkbox);
+  minigameDifficultySelects.set(puzzle.id, select);
+});
+
+function setEnabledMinigameIdsDisplay(ids) {
+  if (!Array.isArray(ids) || ids.length === 0) return;
+  enabledMinigameIds = ids;
+  minigameToggleCheckboxes.forEach((checkbox, id) => {
+    checkbox.checked = ids.includes(id);
+  });
+}
+
+function setMinigameDifficultyDisplay(map) {
+  if (!map) return;
+  minigameDifficultySelects.forEach((select, id) => {
+    if (map[id]) select.value = map[id];
+  });
+}
+
+// --- Match countdown (falling-bomb popup between "Start Game" and the real match/tutorial) ---
+
+let countdownIntervalHandle = null;
+
+// Ticks a local 5→1 countdown off a single Host broadcast (see createMatchCountdownMessage) —
+// each client runs its own timer rather than the Host re-broadcasting every second. Purely
+// cosmetic, so the small clock drift that implies is harmless; the actual phase transition still
+// only happens when the real START_MATCH/TUTORIAL_START message arrives (startGame/startTutorial
+// below both call clearMatchCountdown() defensively on entry).
+function showMatchCountdown(totalSeconds) {
+  clearMatchCountdown();
+  matchCountdownOverlayEl.classList.remove('hidden');
+  let remaining = totalSeconds;
+  setCountdownNumber(remaining);
+  SoundManager.playTap();
+  countdownIntervalHandle = setInterval(() => {
+    remaining -= 1;
+    if (remaining <= 0) {
+      clearMatchCountdown();
+      return;
+    }
+    setCountdownNumber(remaining);
+    SoundManager.playTap();
+  }, 1000);
+}
+
+function setCountdownNumber(n) {
+  matchCountdownNumberEl.textContent = String(n);
+  // Force @keyframes countdown-number-pop to replay on every tick — reapplying the same
+  // animation value is a no-op without this reset-and-reflow.
+  matchCountdownNumberEl.style.animation = 'none';
+  void matchCountdownNumberEl.offsetWidth;
+  matchCountdownNumberEl.style.animation = '';
+}
+
+function clearMatchCountdown() {
+  clearInterval(countdownIntervalHandle);
+  countdownIntervalHandle = null;
+  matchCountdownOverlayEl.classList.add('hidden');
+}
+
+// --- Lobby music ---
+
+function updateLobbyMusicIcon() {
+  lobbyMusicToggleIconEl.src = lobbyMusicMuted ? '/UI/Sprites/AccentSwoosh2_No.png' : '/UI/Sprites/AccentSwoosh2.png';
+  lobbyMusicToggleBtn.title = lobbyMusicMuted ? 'Unmute lobby music' : 'Mute lobby music';
+}
+updateLobbyMusicIcon();
+
+// The track actually keeps playing (and advancing) the whole time we're in the lobby, muted or
+// not — the toggle button only flips SoundManager.setLobbyMusicMuted, never play/stop, so
+// unmuting picks the track back up wherever it already is instead of restarting it from 0:00.
+function enterLobbyMusic() {
+  SoundManager.playLobbyMusic();
+  SoundManager.setLobbyMusicMuted(lobbyMusicMuted);
+}
+
+// Browsers block audio with sound until the page has seen a user gesture — the very first
+// pointerdown anywhere (entry screen typing/clicking included) is as early as this can start,
+// rather than waiting for a specific button.
+document.addEventListener('pointerdown', enterLobbyMusic, { once: true });
+
+lobbyMusicToggleBtn.addEventListener('click', () => {
+  lobbyMusicMuted = !lobbyMusicMuted;
+  try {
+    localStorage.setItem(LOBBY_MUSIC_MUTED_KEY, String(lobbyMusicMuted));
+  } catch {
+    // storage unavailable (private browsing etc.) — the toggle still works for this tab/session
+  }
+  updateLobbyMusicIcon();
+  SoundManager.setLobbyMusicMuted(lobbyMusicMuted);
+});
+
+// Phaser (and GameScene.js, which imports it) is only ever needed once a match actually starts —
+// the entry/lobby screens are plain DOM/CSS. Dynamic-importing both here instead of a static
+// top-of-file import lets Vite split Phaser into its own chunk, fetched only at this point instead
+// of blocking the very first paint every player sees.
+async function startGame(matchState) {
+  clearMatchCountdown();
+  SoundManager.stopLobbyMusic();
   if (phaserGame) {
     phaserGame.destroy(true);
     phaserGame = null;
@@ -455,6 +670,8 @@ function startGame(matchState) {
   gameEl.classList.remove('hidden');
   lastMatchState = matchState;
   syncGameContainerSize();
+
+  const [{ default: Phaser }, { GameScene }] = await Promise.all([import('phaser'), import('./render/GameScene.js')]);
 
   phaserGame = new Phaser.Game({
     type: Phaser.AUTO,
@@ -471,6 +688,10 @@ function startGame(matchState) {
 
   phaserGame.scene.start('GameScene', {
     localPlayerId,
+    // The final roster for this whole match — nobody can join mid-match, so this is everyone
+    // GameScene will ever need avatar textures for. Lets it preload only those, not every
+    // possible option across every category.
+    players: matchState.players,
     onLocalIsHolder: (isHolder) => {
       if (isHolder) {
         mountPuzzleUI();
@@ -583,6 +804,8 @@ function mountPuzzleUI() {
     onAttempt: submitPuzzleResult,
     streakTarget: lastMatchState ? lastMatchState.streakTarget : 3,
     difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
+    minigameDifficulty: lastMatchState ? lastMatchState.minigameDifficulty : undefined,
+    enabledIds: lastMatchState ? lastMatchState.enabledMinigameIds : undefined,
   });
   if (lastMatchState) {
     puzzleHandle.updateTimer(lastMatchState.bombTimer);
@@ -602,22 +825,36 @@ function unmountPuzzleUI() {
 
 // --- Tutorial Mode ---
 
+// Tutorial Mode only previews whichever minigames this room's match actually has enabled (the
+// README promises "a practice round through each enabled mini-game") — not every mod-tool-enabled
+// puzzle, which is the full PUZZLES list used elsewhere (e.g. the mod tool's own debug preview,
+// via practiceMode without a matchState at all).
+function getTutorialPuzzles() {
+  const ids = lastMatchState && lastMatchState.enabledMinigameIds;
+  if (!ids || ids.length === 0) return PUZZLES;
+  const filtered = PUZZLES.filter((p) => ids.includes(p.id));
+  return filtered.length > 0 ? filtered : PUZZLES;
+}
+
 function mountTutorialPuzzle() {
   if (tutorialPuzzleHandle) tutorialPuzzleHandle.unmount();
-  const puzzle = PUZZLES[tutorialPuzzleIndex];
+  const tutorialPuzzles = getTutorialPuzzles();
+  const puzzle = tutorialPuzzles[tutorialPuzzleIndex];
   tutorialPuzzleHandle = createPuzzleOverlay(tutorialPuzzleMountEl, {
     onAttempt: (success) => {
       if (!success) triggerShake('shake-small');
     },
     practiceMode: true,
     puzzleId: puzzle.id,
-    difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
+    difficulty:
+      (lastMatchState && lastMatchState.minigameDifficulty && lastMatchState.minigameDifficulty[puzzle.id]) ||
+      (lastMatchState ? lastMatchState.difficulty : 'medium'),
     onNext: () => {
-      tutorialPuzzleIndex = (tutorialPuzzleIndex + 1) % PUZZLES.length;
+      tutorialPuzzleIndex = (tutorialPuzzleIndex + 1) % tutorialPuzzles.length;
       mountTutorialPuzzle();
     },
     onPrev: () => {
-      tutorialPuzzleIndex = (tutorialPuzzleIndex - 1 + PUZZLES.length) % PUZZLES.length;
+      tutorialPuzzleIndex = (tutorialPuzzleIndex - 1 + tutorialPuzzles.length) % tutorialPuzzles.length;
       mountTutorialPuzzle();
     },
   });
@@ -633,6 +870,8 @@ function updateTutorialReadyCount(matchState) {
 }
 
 function startTutorial(matchState) {
+  clearMatchCountdown();
+  SoundManager.stopLobbyMusic();
   lobbyEl.classList.add('hidden');
   tutorialPanelEl.classList.remove('hidden');
   lastMatchState = matchState;
@@ -1060,6 +1299,7 @@ function returnToLobby(message) {
   SoundManager.stopGlobalSiren();
   SoundManager.stopPersonalAlarm();
   SoundManager.stopPersonalRoundMusic();
+  enterLobbyMusic();
 
   gameOverPanelEl.classList.add('hidden');
   gameEl.classList.add('hidden');
@@ -1077,7 +1317,9 @@ function returnToLobby(message) {
     message.winCounts,
     message.streakTarget,
     message.difficulty,
-    message.tutorialEnabled
+    message.tutorialEnabled,
+    message.enabledMinigameIds,
+    message.minigameDifficulty
   );
 }
 
@@ -1275,8 +1517,11 @@ joinConfirmBtn.addEventListener('click', () => {
       message.winCounts,
       message.streakTarget,
       message.difficulty,
-      message.tutorialEnabled
+      message.tutorialEnabled,
+      message.enabledMinigameIds,
+      message.minigameDifficulty
     );
+  client.onMatchCountdown = (seconds) => showMatchCountdown(seconds);
   client.onTutorialStarted = (matchState) => startTutorial(matchState);
   client.onMatchStarted = (matchState) => startGame(matchState);
   client.onStateUpdate = (matchState) => applyMatchState(matchState);
@@ -1334,13 +1579,23 @@ startBtn.addEventListener('click', () => {
   if (role === 'host' && host) host.beginMatch();
 });
 
+advancedSettingsBtn.addEventListener('click', () => {
+  advancedSettingsModalEl.classList.remove('hidden');
+});
+advancedSettingsXBtn.addEventListener('click', () => {
+  advancedSettingsModalEl.classList.add('hidden');
+});
+advancedSettingsDoneBtn.addEventListener('click', () => {
+  advancedSettingsModalEl.classList.add('hidden');
+});
+
 hostBtn.addEventListener('click', () => {
   const roomCode = randomRoomCode();
   const name = getLocalName();
   lobbyStatusEl.textContent = 'Starting host...';
 
   role = 'host';
-  host = new PeerHost(roomCode, name, currentAvatarParts);
+  host = new PeerHost(roomCode, name, currentAvatarParts, undefined, PUZZLES.map((p) => p.id));
 
   host.onReady = (id) => {
     localPlayerId = id;
@@ -1356,8 +1611,11 @@ hostBtn.addEventListener('click', () => {
       matchState.winCounts,
       matchState.streakTarget,
       matchState.difficulty,
-      matchState.tutorialEnabled
+      matchState.tutorialEnabled,
+      matchState.enabledMinigameIds,
+      matchState.minigameDifficulty
     );
+  host.onMatchCountdown = (seconds) => showMatchCountdown(seconds);
   host.onTutorialStarted = (matchState) => startTutorial(matchState);
   host.onMatchStarted = (matchState) => startGame(matchState);
   host.onStateUpdate = (matchState) => applyMatchState(matchState);

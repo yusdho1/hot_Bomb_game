@@ -39,7 +39,7 @@ No app to install, no account, no server costs: one player hosts, everyone else 
   either way, so don't freeze up — a miss only costs you progress, not time.
 - **Tomato sabotage** (optional, on by default). While you're waiting for your turn, tap **Earn
   Tomato** for a quick puzzle — randomly either **Snake** (trace a path connecting checkpoints 1→6
-  while covering every tile) or **Gold Rush** (time a swinging claw to grab a tomato before it
+  while covering every tile) or **Tomato Rush** (time a swinging claw to grab a tomato before it
   hits a bomb) — to earn one tomato for your basket (once per turn). Tomatoes aren't thrown
   automatically: throw as many as you've got, whenever you want, at the current holder — no
   puzzle or turn limit on the *throwing* itself. A hit splats their screen for a moment (1–3s,
@@ -64,6 +64,8 @@ The bomb holder is handed one of these at random each turn (never the same one t
 | **Whack-a-Mole** | Tap the bomb icon before it disappears back into its hole. |
 | **Emoji Match** | Drag each card onto its matching emoji, from either row, until the whole board is cleared. |
 | **Reflex Runner** | Tap STOP the instant the moving marker is inside the green zone. |
+| **Wire Cut** | Read the rule, then tap the one wire it describes — by color, position, or next to another wire. |
+| **Pipe Connect** | Tap tiles to rotate them and connect a pipe from the left inlet all the way to the right outlet. |
 
 The host can toggle any of these on/off, tune each one's settings (colors, grid size, speed,
 pairs per round, ...), and set a match-wide difficulty (Easy/Medium/Hard) from the lobby.

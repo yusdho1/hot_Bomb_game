@@ -375,6 +375,23 @@ const server = http.createServer(async (req, res) => {
       return;
     }
 
+    if (req.method === 'POST' && pathname === '/api/avatar/category/remove') {
+      // Only drops the category entry (and whatever images it referenced) from config — never
+      // deletes the actual PNG files, same "leaves the file on disk" precedent as removing a
+      // single avatar option or a sound file. Every consumer of avatarParts.categories
+      // (avatarOptions.js) is already fully generic over the category list, so this is safe for
+      // any category including face/eyes/mouth — there's nothing hardcoded to break.
+      const { key } = await readJsonBody(req);
+      const config = readConfig();
+      if (!config.avatarParts.categories.some((c) => c.key === key)) {
+        throw new Error(`Unknown category "${key}"`);
+      }
+      config.avatarParts.categories = config.avatarParts.categories.filter((c) => c.key !== key);
+      writeConfig(config);
+      sendJson(res, 200, { ok: true });
+      return;
+    }
+
     if (req.method === 'GET' && pathname === '/design-guidelines') {
       const md = fs.readFileSync(DESIGN_GUIDELINES_PATH, 'utf8');
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' });
