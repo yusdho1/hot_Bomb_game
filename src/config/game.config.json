@@ -190,10 +190,10 @@
       "complexRuleChance": 50,
       "colorRed": "#f02e19",
       "colorBlue": "#1148ee",
-      "colorYellow": "#ffea00",
+      "colorYellow": "#ffff00",
       "colorGreen": "#3be421",
       "colorPurple": "#6e0099",
-      "colorOrange": "#ffa200"
+      "colorOrange": "#ff9500"
     },
     "pipeconnect": {
       "difficultyPresets": {
@@ -208,6 +208,32 @@
         }
       },
       "gridSize": 3
+    },
+    "goldrush": {
+      "difficultyPresets": {
+        "easy": {
+          "goldCount": 5,
+          "bombCount": 2,
+          "swingPeriodSeconds": 3.2,
+          "hitRadiusPx": 26
+        },
+        "medium": {
+          "goldCount": 4,
+          "bombCount": 2,
+          "swingPeriodSeconds": 2.4,
+          "hitRadiusPx": 19
+        },
+        "hard": {
+          "goldCount": 3,
+          "bombCount": 5,
+          "swingPeriodSeconds": 1.6,
+          "hitRadiusPx": 13
+        }
+      },
+      "goldCount": 2,
+      "bombCount": 3,
+      "hitRadiusPx": 25,
+      "swingPeriodSeconds": 2.4
     }
   },
   "sounds": {

@@ -576,13 +576,30 @@ function renderDebugMinigameOptions() {
   const select = document.getElementById('debug-minigame-select');
   const current = select.value;
   select.innerHTML = '';
+  const ids = [];
   state.config.minigames.forEach((entry) => {
     const opt = document.createElement('option');
     opt.value = entry.id;
     opt.textContent = entry.id;
     select.appendChild(opt);
+    ids.push(entry.id);
   });
-  if (current && state.config.minigames.some((m) => m.id === current)) select.value = current;
+  // Sabotage-puzzle alternatives (Zip, Gold Rush — the "Earn Tomato" games) aren't part of the
+  // pass-the-bomb rotation, so they're never in state.config.minigames — but they're still real,
+  // previewable minigames. They're exactly the schemas discovered from server.js's
+  // EXTRA_SCHEMA_FILES rather than the registry/ folder, which state.discovered.minigameFiles
+  // already distinguishes for us.
+  const registryIds = new Set(state.discovered.minigameFiles.map((m) => m.id));
+  Object.keys(state.schemas)
+    .filter((id) => !registryIds.has(id))
+    .forEach((id) => {
+      const opt = document.createElement('option');
+      opt.value = id;
+      opt.textContent = `${id} (sabotage)`;
+      select.appendChild(opt);
+      ids.push(id);
+    });
+  if (current && ids.includes(current)) select.value = current;
 }
 
 // Loads a specific minigame + difficulty directly into both preview frames via the game's own

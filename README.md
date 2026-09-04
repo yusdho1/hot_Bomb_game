@@ -37,13 +37,14 @@ No app to install, no account, no server costs: one player hosts, everyone else 
   fuse resets fresh for them.
 - **A wrong answer isn't fatal.** It just resets your streak back to 0. Your fuse keeps ticking
   either way, so don't freeze up — a miss only costs you progress, not time.
-- **Tomato sabotage** (optional, on by default). While you're waiting for your turn, solve the
-  **Snake** puzzle — trace a path connecting checkpoints 1→6 while covering every tile — to earn
-  one tomato for your basket (once per turn). Tomatoes aren't thrown automatically: throw as many
-  as you've got, whenever you want, at the current holder — no puzzle or turn limit on the
-  *throwing* itself. A hit splats their screen for a moment (1–3s, host-configurable) while their
-  fuse keeps burning.
-- **Points & the Shop.** Solving Snake, or finishing a streak fast as the holder, earns you
+- **Tomato sabotage** (optional, on by default). While you're waiting for your turn, tap **Earn
+  Tomato** for a quick puzzle — randomly either **Snake** (trace a path connecting checkpoints 1→6
+  while covering every tile) or **Gold Rush** (time a swinging claw to grab a tomato before it
+  hits a bomb) — to earn one tomato for your basket (once per turn). Tomatoes aren't thrown
+  automatically: throw as many as you've got, whenever you want, at the current holder — no
+  puzzle or turn limit on the *throwing* itself. A hit splats their screen for a moment (1–3s,
+  host-configurable) while their fuse keeps burning.
+- **Points & the Shop.** Earning a tomato, or finishing a streak fast as the holder, earns you
   points. Spend them (while you're *not* holding the bomb) on:
   - **+5s Fuse Time** — extra time for your *next* turn as holder
   - **+1 Tomato** — buy one for your basket, no puzzle required

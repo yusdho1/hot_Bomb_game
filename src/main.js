@@ -4,6 +4,7 @@ import { PeerClient } from './network/PeerClient.js';
 import { GameScene } from './render/GameScene.js';
 import { mountPuzzleOverlay as createPuzzleOverlay, PUZZLES } from './render/puzzles/PuzzleOverlay.js';
 import { ZipPuzzle } from './render/puzzles/ZipPuzzle.js';
+import { GoldRushTomato } from './render/puzzles/GoldRushTomato.js';
 import { TomatoThrow } from './render/TomatoThrow.js';
 import { SoundManager } from './render/SoundManager.js';
 import { Haptics } from './render/Haptics.js';
@@ -167,13 +168,13 @@ const HOW_TO_PLAY_PAGES = [
   },
   {
     icon: '/UI/Sprites/Tomato_Stain.png',
-    title: 'Snake Sabotage',
-    text: "While you wait for your turn, solve the Snake puzzle (once per turn) to earn a tomato for your basket. Throw them at whoever's holding the bomb whenever you want, as many as you've got!",
+    title: 'Sabotage',
+    text: "While you wait for your turn, tap Earn Tomato for a quick puzzle (once per turn) to earn a tomato for your basket. Throw them at whoever's holding the bomb whenever you want, as many as you've got!",
   },
   {
     icon: '/UI/Sprites/IconCoinGold.png',
     title: 'Earning Points',
-    text: 'Solving Snake, or finishing a fast streak as the holder, earns you points to spend in the Shop.',
+    text: 'Earning a tomato, or finishing a fast streak as the holder, earns you points to spend in the Shop.',
   },
   {
     icon: '/UI/Sprites/IconShop.png',
@@ -222,43 +223,56 @@ renderAvatar(avatarPreviewEl, currentAvatarParts);
 
 // --- Mod-tool debug/scenario preview ---
 // ?debugPuzzle=<id>&difficulty=<easy|medium|hard> bypasses the entry/lobby screens and all
-// PeerJS/networking entirely — pure local preview of one puzzle, reusing the exact same
-// practiceMode puzzle mount Tutorial Mode uses (no new puzzle-mounting code needed). ‹›  still
-// browses the other enabled minigames from whatever id it started at.
+// PeerJS/networking entirely — pure local preview of one puzzle. Two families of id, matching the
+// two puzzle contracts in this codebase: an id from PUZZLES (the streak-based pass-the-bomb
+// rotation) reuses practiceMode, the exact same mount Tutorial Mode uses; an id from
+// DEBUG_SABOTAGE_PUZZLES (Zip, Gold Rush — the "Earn Tomato" alternatives, which live outside that
+// registry entirely) mounts directly via their own mount(containerEl, {onSolved, difficulty})
+// contract into the same popup overlay the real game uses for them.
+const DEBUG_SABOTAGE_PUZZLES = { zip: ZipPuzzle, goldrush: GoldRushTomato };
 const debugParams = new URLSearchParams(window.location.search);
 const debugPuzzleId = debugParams.get('debugPuzzle');
 if (debugPuzzleId) {
   entryEl.classList.add('hidden');
   lobbyEl.classList.add('hidden');
   gameEl.classList.remove('hidden');
-  puzzleOverlayEl.classList.remove('hidden');
 
   const debugDifficulty = debugParams.get('difficulty') || 'medium';
-  let debugIndex = Math.max(
-    0,
-    PUZZLES.findIndex((p) => p.id === debugPuzzleId)
-  );
-  let debugHandle = null;
 
-  const mountDebugPuzzle = () => {
-    if (debugHandle) debugHandle.unmount();
-    const puzzle = PUZZLES[debugIndex];
-    debugHandle = createPuzzleOverlay(puzzleOverlayEl, {
-      onAttempt: () => {},
-      practiceMode: true,
-      puzzleId: puzzle.id,
+  if (DEBUG_SABOTAGE_PUZZLES[debugPuzzleId]) {
+    zipOverlayEl.classList.remove('hidden');
+    DEBUG_SABOTAGE_PUZZLES[debugPuzzleId].mount(zipOverlayEl, {
+      onSolved: () => {},
       difficulty: debugDifficulty,
-      onNext: () => {
-        debugIndex = (debugIndex + 1) % PUZZLES.length;
-        mountDebugPuzzle();
-      },
-      onPrev: () => {
-        debugIndex = (debugIndex - 1 + PUZZLES.length) % PUZZLES.length;
-        mountDebugPuzzle();
-      },
     });
-  };
-  mountDebugPuzzle();
+  } else {
+    puzzleOverlayEl.classList.remove('hidden');
+    let debugIndex = Math.max(
+      0,
+      PUZZLES.findIndex((p) => p.id === debugPuzzleId)
+    );
+    let debugHandle = null;
+
+    const mountDebugPuzzle = () => {
+      if (debugHandle) debugHandle.unmount();
+      const puzzle = PUZZLES[debugIndex];
+      debugHandle = createPuzzleOverlay(puzzleOverlayEl, {
+        onAttempt: () => {},
+        practiceMode: true,
+        puzzleId: puzzle.id,
+        difficulty: debugDifficulty,
+        onNext: () => {
+          debugIndex = (debugIndex + 1) % PUZZLES.length;
+          mountDebugPuzzle();
+        },
+        onPrev: () => {
+          debugIndex = (debugIndex - 1 + PUZZLES.length) % PUZZLES.length;
+          mountDebugPuzzle();
+        },
+      });
+    };
+    mountDebugPuzzle();
+  }
 }
 
 // Drives #game-container's real pixel size on portrait phones via JS rather than trusting CSS
@@ -702,12 +716,20 @@ function updateThrowTomatoButton(matchState) {
   }
 }
 
+// "Earn Tomato" picks randomly between the two sabotage-puzzle alternatives each time it's
+// opened — both share the exact same mount(containerEl, {onSolved, difficulty}) => {unmount}
+// contract, so the swap is a one-line array pick. Names/ids throughout this file (zipHandle,
+// closeZipPuzzle, hostSubmitZipSolved, ...) still say "zip" for historical reasons — they mean
+// "the current sabotage puzzle," not literally Zip specifically.
+const SABOTAGE_PUZZLES = [ZipPuzzle, GoldRushTomato];
+
 function openZipPuzzle() {
   solveZipBtn.classList.add('hidden');
   throwTomatoBtn.classList.add('hidden');
   shopBtn.classList.add('hidden');
   zipOverlayEl.classList.remove('hidden');
-  zipHandle = ZipPuzzle.mount(zipOverlayEl, {
+  const puzzle = SABOTAGE_PUZZLES[Math.floor(Math.random() * SABOTAGE_PUZZLES.length)];
+  zipHandle = puzzle.mount(zipOverlayEl, {
     onSolved: handleZipSolved,
     difficulty: lastMatchState ? lastMatchState.difficulty : 'medium',
   });
