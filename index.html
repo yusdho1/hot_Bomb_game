@@ -198,6 +198,7 @@
         border-radius: 50%;
         background: rgba(255, 255, 255, 0.08);
         cursor: pointer;
+        overflow: hidden;
         z-index: 3;
       }
       #lobby-music-toggle-btn:hover {
@@ -210,6 +211,11 @@
         width: 100%;
         height: 100%;
         object-fit: contain;
+        /* The art itself still has plenty of transparent margin baked into its own canvas even
+           after filling the button box — scale it up past 100% so the actual swoosh/note reads at
+           a real size instead of a thin illegible line; overflow:hidden on the button (above) clips
+           it back to the circle. */
+        transform: scale(2.2);
       }
       /* Slow diagonal drift for the small polka-dot texture layers used across #lobby (tile
          64px/42px) and .puzzle-panel/.puzzle-game-box/.zip-panel/.shop-panel (tile 56px/36px,
@@ -451,6 +457,10 @@
         min-height: 20px;
         font-size: 13px;
         color: #cfc9f0;
+        /* Centered so it never sits over the lobby-music toggle button, which is pinned
+           bottom-left of this same #lobby panel via position:absolute (so it takes no flow
+           space of its own) — left-aligned status text would otherwise land right on top of it. */
+        text-align: center;
       }
       #room-code-display {
         display: flex;
@@ -852,9 +862,12 @@
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
-      #turn-notice-toast {
+      /* "You're up next" heads-up — same ticket-banner look as #elimination-toast, just parked a
+         little lower so the two never visually collide on the rare turn where both could
+         plausibly be relevant at once. */
+      #next-holder-toast {
         position: absolute;
-        top: 120px;
+        top: 110px;
         left: 50%;
         transform: translateX(-50%) translateY(-10px);
         background-image: url('/UI/Sprites/TicketCardOrangeGlowLandscape.png');
@@ -871,7 +884,7 @@
         pointer-events: none;
         z-index: 5;
       }
-      #turn-notice-toast.visible {
+      #next-holder-toast.visible {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
       }
@@ -929,6 +942,33 @@
         animation: shield-pulse 0.9s ease-out;
       }
       @keyframes shield-pulse {
+        0% {
+          opacity: 0;
+        }
+        25% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      /* "You're up next" cue — same one-shot pulse mechanics as shield-pulse above (static
+         box-shadow, animate only opacity, main.js drops .active on animationend so it can restart
+         immediately if triggered again), just red instead of blue and paired with
+         #next-holder-toast's text banner rather than standing alone. */
+      #next-holder-pulse-overlay {
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        z-index: 150;
+        opacity: 0;
+        box-shadow: inset 0 0 70px 18px rgba(255, 60, 60, 0.85);
+        will-change: opacity;
+      }
+      #next-holder-pulse-overlay.active {
+        animation: next-holder-pulse 0.9s ease-out;
+      }
+      @keyframes next-holder-pulse {
         0% {
           opacity: 0;
         }
@@ -1002,38 +1042,53 @@
         font-size: 13px;
         color: #cfc9f0;
       }
+      /* A badge pinned above the Shop button (nested inside it in the HTML) instead of a separate
+         element floating elsewhere on screen — the balance is only ever meaningful in the context
+         of "what can I afford", so it reads better attached directly to the button that spends it.
+         Sits fully clear above it (not straddling the corner) so it never visually reads as part
+         of the button itself. #shop-btn below gets position:relative to anchor this. */
       #points-balance {
         position: absolute;
-        top: 60px;
-        right: 14px;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        margin-bottom: 6px;
         display: flex;
         align-items: center;
-        gap: 5px;
-        padding: 5px 10px;
-        border-radius: 14px;
-        background: rgba(10, 10, 14, 0.6);
+        gap: 3px;
+        padding: 3px 7px;
+        border-radius: 12px;
+        background: rgba(10, 10, 14, 0.85);
         border: 1px solid var(--accent-orange-border);
         color: #ffdd55;
         font-family: var(--font-display);
         font-weight: 700;
-        font-size: 13px;
-        z-index: 8;
+        font-size: 11px;
+        white-space: nowrap;
+        z-index: 9;
       }
       #points-balance img {
-        width: 16px;
-        height: 16px;
+        width: 12px;
+        height: 12px;
         object-fit: contain;
       }
+      /* A dedicated action-bar "shelf" (not just bare floating buttons) so Earn Tomato/Shop always
+         read as fixed UI chrome distinct from whatever the spectator board draws behind them,
+         regardless of scene content — the gradient darkens toward the bottom edge rather than
+         using a hard-edged solid bar, so it doesn't look like a second letterboxed panel. */
       #waiting-actions-row {
         position: absolute;
-        left: 50%;
-        bottom: 18px;
-        transform: translateX(-50%);
+        left: 0;
+        right: 0;
+        bottom: 0;
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
+        align-items: center;
         gap: 10px;
-        width: 94%;
+        padding: 18px 3% 18px;
+        box-sizing: border-box;
+        background: linear-gradient(180deg, rgba(10, 8, 20, 0) 0%, rgba(10, 8, 20, 0.55) 45%, rgba(10, 8, 20, 0.8) 100%);
         z-index: 8;
       }
       #solve-zip-btn,
@@ -1075,6 +1130,7 @@
         animation: tomato-btn-pulse 1.6s ease-in-out infinite;
       }
       #shop-btn {
+        position: relative;
         background: linear-gradient(180deg, #fff3c4 0%, #f4c430 100%);
         border-color: #7a5a12;
       }
@@ -1171,15 +1227,25 @@
         gap: 10px;
         min-height: 0;
         padding: 14px 14px 10px;
-        /* No CSS border/background-color/border-radius here — background_bp_Gradinet.png already
-           draws its own scalloped outline and fill. A plain rectangular CSS border on top of it
-           double-framed the shape, and a CSS border-radius clip cut a plain circular arc across
-           that already-scalloped corner art, producing a visible mismatched seam right at each
-           corner — the image's own corner shape is the only rounding this needs. Also no
-           box-shadow: it's a plain rectangular shadow that isn't aware of the image's own alpha
-           shape, so with no border-radius to clip it, it shows straight through the image's
-           transparent scalloped corners as a rectangular halo tracing the box's real (unrounded)
-           bounds — worse than no shadow at all. */
+        /* No CSS border/border-radius here — background_bp_Gradinet.png already draws its own
+           scalloped outline and fill. A plain rectangular CSS border on top of it double-framed
+           the shape, and a CSS border-radius clip cut a plain circular arc across that
+           already-scalloped corner art, producing a visible mismatched seam right at each corner —
+           the image's own corner shape is the only rounding this needs. Also no box-shadow: it's a
+           plain rectangular shadow that isn't aware of the image's own alpha shape, so with no
+           border-radius to clip it, it shows straight through the image's transparent scalloped
+           corners as a rectangular halo tracing the box's real (unrounded) bounds — worse than no
+           shadow at all.
+           background-color DOES need to be set, though (this was the one missing piece — a real
+           bug, not just a stylistic choice like the two above): the PNG's own painted card shape
+           pulls inward from the box's actual sharp corners (that's what "scalloped" means), so on
+           a tall panel like the Avatar Creator's — where 100% 100% sizing stretches the image
+           further than its native aspect ratio — those corner gaps are large enough to visibly
+           read as a mismatched notch, showing straight through the modal backdrop to whatever sits
+           behind it (e.g. #lobby) instead of the card's own dark background. A same-tone fill
+           behind the image closes that gap with no visible seam, since it matches the color the
+           image already fades toward at its own edges. */
+        background-color: var(--panel-bg);
         background-image:
           radial-gradient(circle, rgba(255, 255, 255, 0.07) 8%, transparent 9%),
           radial-gradient(circle, rgba(255, 255, 255, 0.045) 4%, transparent 5%),
@@ -1371,6 +1437,9 @@
       .puzzle-dot.filled {
         background: #ff3b3b;
         box-shadow: 0 0 8px #ff3b3b;
+      }
+      .how-to-play-dot {
+        cursor: pointer;
       }
       .puzzle-content {
         width: 100%;
@@ -1785,6 +1854,7 @@
         transform: translateX(-50%);
         background: rgba(255, 255, 255, 0.75);
         filter: blur(7px);
+        opacity: 0.7;
         pointer-events: none;
       }
       .wirecut-wire::before,
@@ -2300,6 +2370,119 @@
           transform: translate(2px, 2px) rotate(2deg);
         }
       }
+      /* Bomb-handoff push animation overlay — see the HTML comment above #turn-transition-overlay
+         for why this is position:fixed. Durations below assume the default ~1s
+         settings.turnTransitionSeconds; a host-tuned much-shorter value would cut them off
+         slightly early, which is an acceptable tradeoff for not wiring a dynamic CSS duration
+         through for what's a purely cosmetic flourish. */
+      #turn-transition-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 120;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 20px;
+        background: rgba(10, 8, 20, 0.88);
+        animation: turn-transition-fade 1s ease;
+      }
+      @keyframes turn-transition-fade {
+        0% {
+          opacity: 0;
+        }
+        12% {
+          opacity: 1;
+        }
+        85% {
+          opacity: 1;
+        }
+        100% {
+          opacity: 0;
+        }
+      }
+      #turn-transition-title {
+        font-family: var(--font-display);
+        font-weight: 800;
+        font-size: clamp(20px, 5vw, 30px);
+        color: #ffdd55;
+        text-shadow: 2px 2px 0 var(--text-outline);
+        text-align: center;
+        padding: 0 20px;
+      }
+      #turn-transition-avatars {
+        position: relative;
+        display: flex;
+        align-items: flex-start;
+        justify-content: center;
+        gap: clamp(50px, 26vw, 200px);
+      }
+      .turn-transition-side {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+      }
+      .turn-transition-avatar {
+        width: clamp(64px, 16vw, 100px);
+        height: clamp(64px, 16vw, 100px);
+      }
+      #turn-transition-from {
+        animation: turn-transition-push-lunge 0.4s ease-out;
+      }
+      @keyframes turn-transition-push-lunge {
+        0% {
+          transform: translateX(0);
+        }
+        40% {
+          transform: translateX(14px) rotate(-4deg);
+        }
+        100% {
+          transform: translateX(0);
+        }
+      }
+      #turn-transition-to {
+        animation: turn-transition-catch-bounce 0.4s ease-out 0.5s backwards;
+      }
+      @keyframes turn-transition-catch-bounce {
+        0% {
+          transform: scale(0.8);
+        }
+        60% {
+          transform: scale(1.15);
+        }
+        100% {
+          transform: scale(1);
+        }
+      }
+      .turn-transition-side span {
+        font-family: var(--font-display);
+        font-weight: 700;
+        font-size: 14px;
+        color: #fff;
+        text-shadow: 1px 1px 0 var(--text-outline);
+        text-align: center;
+        max-width: clamp(80px, 20vw, 130px);
+      }
+      #turn-transition-bomb {
+        position: absolute;
+        top: clamp(32px, 8vw, 50px);
+        left: 18%;
+        width: clamp(32px, 7vw, 48px);
+        transform: translate(-50%, -50%);
+        filter: drop-shadow(0 4px 10px rgba(0, 0, 0, 0.5));
+        animation: turn-transition-bomb-slide 0.6s ease-in-out;
+      }
+      @keyframes turn-transition-bomb-slide {
+        0% {
+          left: 18%;
+          transform: translate(-50%, -50%) rotate(0deg);
+        }
+        100% {
+          left: 82%;
+          transform: translate(-50%, -50%) rotate(220deg);
+        }
+      }
       .modal-close-btn {
         position: absolute;
         top: 10px;
@@ -2557,15 +2740,11 @@
 
     <div id="game-container" class="hidden">
       <div id="elimination-toast"></div>
-      <div id="turn-notice-toast"></div>
+      <div id="next-holder-toast"></div>
       <div id="puzzle-overlay" class="hidden"></div>
       <div id="shield-pulse-overlay"></div>
+      <div id="next-holder-pulse-overlay"></div>
       <div id="global-danger-overlay"></div>
-
-      <div id="points-balance" class="hidden">
-        <img src="/UI/Sprites/IconCoinGold.png" alt="" />
-        <span id="points-balance-value">0</span>
-      </div>
 
       <div id="waiting-actions-row">
         <button id="solve-zip-btn" type="button" class="hidden">
@@ -2579,6 +2758,10 @@
         <button id="shop-btn" type="button" class="hidden">
           <img src="/UI/Sprites/IconShop.png" alt="" />
           Shop
+          <span id="points-balance" class="hidden">
+            <img src="/UI/Sprites/IconCoinGold.png" alt="" />
+            <span id="points-balance-value">0</span>
+          </span>
         </button>
       </div>
 
@@ -2657,6 +2840,26 @@
       </div>
       <div id="match-countdown-number" class="countdown-number">5</div>
       <img class="countdown-bomb" src="/UI/BombFull.png" alt="" />
+    </div>
+
+    <!-- Bomb-handoff push animation — plays for BombState.js's TURN_TRANSITION_SECONDS (default
+         1s) every time selectNextHolder actually assigns a new holder, during which the Host
+         freezes both the match clock and the new holder's fuse. position:fixed (not scoped to
+         #game-container) so it reliably covers whatever's on screen for every viewer, including
+         the full-screen #puzzle-overlay the outgoing holder was just looking at. -->
+    <div id="turn-transition-overlay" class="hidden">
+      <div id="turn-transition-title"></div>
+      <div id="turn-transition-avatars">
+        <div class="turn-transition-side">
+          <div id="turn-transition-from" class="avatar-stack turn-transition-avatar"></div>
+          <span id="turn-transition-from-name"></span>
+        </div>
+        <img id="turn-transition-bomb" src="/UI/BombFull.png" alt="" />
+        <div class="turn-transition-side">
+          <div id="turn-transition-to" class="avatar-stack turn-transition-avatar"></div>
+          <span id="turn-transition-to-name"></span>
+        </div>
+      </div>
     </div>
 
     <div id="join-modal" class="modal-overlay hidden">

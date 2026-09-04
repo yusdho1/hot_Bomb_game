@@ -9,6 +9,7 @@
     ],
     "personalTimerSeconds": 10,
     "streakTarget": 3,
+    "turnTransitionSeconds": 1,
     "difficultyDefault": "medium",
     "tutorialEnabledDefault": false,
     "zipEnabledDefault": true,
@@ -308,22 +309,22 @@
     },
     "tap": {
       "files": [
-        "/Sounds/bombsound.mp3"
+        "/Sounds/tapsound.mp3"
       ]
     },
     "tomatoThrow": {
       "files": [
-        "/Sounds/bombsound.mp3"
+        "/Sounds/throw_tomato.mp3"
       ]
     },
     "tomatoSquash": {
       "files": [
-        "/Sounds/smallsucsses.mp3"
+        "/Sounds/tomato-squash.mp3"
       ]
     },
     "shieldDeflect": {
       "files": [
-        "/Sounds/bombsound.mp3"
+        "/Sounds/shielddeflect.mp3"
       ]
     }
   },

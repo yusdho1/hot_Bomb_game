@@ -14,6 +14,7 @@ const SETTINGS_CATEGORIES = [
       { path: 'settings.matchDurationDefault', label: 'Match duration default (s)', type: 'number' },
       { path: 'settings.personalTimerSeconds', label: 'Personal fuse (s)', type: 'number' },
       { path: 'settings.streakTarget', label: 'Streak target', type: 'number' },
+      { path: 'settings.turnTransitionSeconds', label: 'Bomb-handoff pause (s)', type: 'number' },
     ],
   },
   {

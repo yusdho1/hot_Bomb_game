@@ -128,7 +128,14 @@ const lobbyMusicToggleIconEl = document.getElementById('lobby-music-toggle-icon'
 const lobbyEl = document.getElementById('lobby');
 const gameEl = document.getElementById('game-container');
 const eliminationToastEl = document.getElementById('elimination-toast');
-const turnNoticeToastEl = document.getElementById('turn-notice-toast');
+const nextHolderToastEl = document.getElementById('next-holder-toast');
+const nextHolderPulseOverlayEl = document.getElementById('next-holder-pulse-overlay');
+const turnTransitionOverlayEl = document.getElementById('turn-transition-overlay');
+const turnTransitionTitleEl = document.getElementById('turn-transition-title');
+const turnTransitionFromEl = document.getElementById('turn-transition-from');
+const turnTransitionFromNameEl = document.getElementById('turn-transition-from-name');
+const turnTransitionToEl = document.getElementById('turn-transition-to');
+const turnTransitionToNameEl = document.getElementById('turn-transition-to-name');
 const puzzleOverlayEl = document.getElementById('puzzle-overlay');
 const shieldPulseOverlayEl = document.getElementById('shield-pulse-overlay');
 const globalDangerOverlayEl = document.getElementById('global-danger-overlay');
@@ -592,6 +599,10 @@ let countdownIntervalHandle = null;
 // below both call clearMatchCountdown() defensively on entry).
 function showMatchCountdown(totalSeconds) {
   clearMatchCountdown();
+  // Stop right as the countdown appears, not when the match actually starts — the lobby is
+  // visibly going away for the next ~5s (this popup covers it), so the music should go with it
+  // immediately instead of playing under the countdown for the whole 5 seconds.
+  SoundManager.stopLobbyMusic();
   matchCountdownOverlayEl.classList.remove('hidden');
   let remaining = totalSeconds;
   setCountdownNumber(remaining);
@@ -681,7 +692,9 @@ async function startGame(matchState) {
       width: 800,
       height: 500,
     },
-    backgroundColor: '#1d1f27',
+    // GameScene draws its own full-canvas gradient over this on the very first frame — this is
+    // just the matching clear color so there's no flash of gray before that happens.
+    backgroundColor: '#3b4cca',
     parent: 'game-container',
     scene: [GameScene],
   });
@@ -1126,7 +1139,10 @@ function checkTomatoDeflect(matchState) {
 
 // Detects a NEW "bomb changed hands" event via its seq number, same pattern as checkZipStain —
 // fires for every player, every time selectNextHolder actually assigns a new holder (a normal
-// streak-completion pass or a purchased skip-ahead pass consuming itself).
+// streak-completion pass or a purchased skip-ahead pass consuming itself). Plays a 1s push-handoff
+// overlay (from-avatar -> bomb slides across -> to-avatar) matching the real freeze the Host
+// applies via BombState.js's turnTransitionRemaining — see the comment there for why this is a
+// local timer here rather than something the network message carries.
 let turnNoticeHideTimeout = null;
 function checkTurnNotice(matchState) {
   const notice = matchState.turnNotice;
@@ -1134,15 +1150,35 @@ function checkTurnNotice(matchState) {
   lastTurnNoticeSeq = notice.seq;
 
   const toName = notice.toName || 'someone';
-  const message =
+  turnTransitionTitleEl.textContent =
     notice.skipped && notice.skipped.length > 0
-      ? `${notice.skipped.map((p) => p.name).join(', ')} skipped their turn — bomb went to ${toName}!`
-      : `Bomb passed to ${toName}!`;
+      ? `${notice.skipped.map((p) => p.name).join(', ')} skipped their turn — the bomb moves to ${toName}!`
+      : `The bomb moves to ${toName}!`;
 
-  turnNoticeToastEl.textContent = message;
-  turnNoticeToastEl.classList.add('visible');
+  const fromPlayer = notice.fromId ? matchState.players.find((p) => p.id === notice.fromId) : null;
+  const toPlayer = notice.toId ? matchState.players.find((p) => p.id === notice.toId) : null;
+
+  turnTransitionFromEl.innerHTML = '';
+  if (fromPlayer) renderAvatar(turnTransitionFromEl, { ...(fromPlayer.avatar || {}), color: fromPlayer.color });
+  turnTransitionFromNameEl.textContent = fromPlayer ? fromPlayer.name || 'Player' : '';
+
+  turnTransitionToEl.innerHTML = '';
+  if (toPlayer) renderAvatar(turnTransitionToEl, { ...(toPlayer.avatar || {}), color: toPlayer.color });
+  turnTransitionToNameEl.textContent = toName;
+
+  // Restart the fade/slide/bounce animations if this fires again before the previous one finished
+  // (e.g. a very short host-tuned turnTransitionSeconds) — same reset-and-reflow trick as the
+  // match-countdown number.
+  turnTransitionOverlayEl.classList.remove('hidden');
+  turnTransitionOverlayEl.style.animation = 'none';
+  void turnTransitionOverlayEl.offsetWidth;
+  turnTransitionOverlayEl.style.animation = '';
+
   clearTimeout(turnNoticeHideTimeout);
-  turnNoticeHideTimeout = setTimeout(() => turnNoticeToastEl.classList.remove('visible'), 2500);
+  const durationMs = Math.max(200, (gameConfig.settings.turnTransitionSeconds ?? 1) * 1000);
+  turnNoticeHideTimeout = setTimeout(() => turnTransitionOverlayEl.classList.add('hidden'), durationMs);
+
+  if (notice.nextId && notice.nextId === localPlayerId) showNextHolderNotice();
 }
 
 function showTomatoStain(durationSeconds) {
@@ -1183,12 +1219,30 @@ function showShieldPulse() {
 }
 shieldPulseOverlayEl.addEventListener('animationend', () => shieldPulseOverlayEl.classList.remove('active'));
 
+// "You're up next" — fires once for whoever turnNotice.nextId names (see peekNextHolder in
+// BombState.js), a full turn's advance notice rather than the pass that's happening right now.
+// Same one-shot toast + screen-edge pulse pattern as the elimination/shield cues above, just red.
+let nextHolderHideTimeout = null;
+function showNextHolderNotice() {
+  nextHolderToastEl.textContent = "Get ready — you're up next!";
+  nextHolderToastEl.classList.add('visible');
+  clearTimeout(nextHolderHideTimeout);
+  nextHolderHideTimeout = setTimeout(() => nextHolderToastEl.classList.remove('visible'), 2500);
+
+  nextHolderPulseOverlayEl.classList.remove('active');
+  void nextHolderPulseOverlayEl.offsetWidth; // restart the animation if it fires again mid-pulse
+  nextHolderPulseOverlayEl.classList.add('active');
+}
+nextHolderPulseOverlayEl.addEventListener('animationend', () => nextHolderPulseOverlayEl.classList.remove('active'));
+
 function showGameOver({ winners, loserId, winCounts, points, tomatoesThrown }) {
   unmountPuzzleUI();
   unmountWaitingUI();
   applyEliminationNotice(null);
   clearTimeout(turnNoticeHideTimeout);
-  turnNoticeToastEl.classList.remove('visible');
+  turnTransitionOverlayEl.classList.add('hidden');
+  clearTimeout(nextHolderHideTimeout);
+  nextHolderToastEl.classList.remove('visible');
   SoundManager.stopGlobalTicking();
   SoundManager.stopPersonalAlarm();
   gameOverPanelEl.classList.remove('hidden');
@@ -1292,7 +1346,9 @@ function returnToLobby(message) {
   lastTomatoDeflectSeq = 0;
   lastTurnNoticeSeq = 0;
   clearTimeout(turnNoticeHideTimeout);
-  turnNoticeToastEl.classList.remove('visible');
+  turnTransitionOverlayEl.classList.add('hidden');
+  clearTimeout(nextHolderHideTimeout);
+  nextHolderToastEl.classList.remove('visible');
   globalDangerOverlayEl.classList.remove('active');
   vibratedThresholds.clear();
   SoundManager.stopGlobalTicking();
@@ -1398,8 +1454,9 @@ function renderHowToPlayPage(index) {
   howToPlayDotsEl.innerHTML = '';
   HOW_TO_PLAY_PAGES.forEach((_, i) => {
     const dot = document.createElement('div');
-    dot.className = 'puzzle-dot';
+    dot.className = 'puzzle-dot how-to-play-dot';
     if (i === index) dot.classList.add('filled');
+    dot.addEventListener('click', () => renderHowToPlayPage(i));
     howToPlayDotsEl.appendChild(dot);
   });
 }

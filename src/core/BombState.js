@@ -7,6 +7,11 @@ export const DEFAULT_ZIP_ENABLED = gameConfig.settings.zipEnabledDefault;
 export const DEFAULT_ZIP_STAIN_SECONDS = gameConfig.settings.zipStainSecondsDefault;
 export const DEFAULT_DIFFICULTY = gameConfig.settings.difficultyDefault || 'medium';
 export const DEFAULT_TUTORIAL_ENABLED = gameConfig.settings.tutorialEnabledDefault || false;
+// How long (real seconds) both timers freeze for while the bomb-handoff push animation plays,
+// whenever selectNextHolder actually assigns a new holder. Read by tickTimers below; clients never
+// see this value directly — they just play their own local 1s animation off turnNotice.seq
+// changing, same "cosmetic, host is authoritative" pattern as the match-start countdown.
+export const TURN_TRANSITION_SECONDS = gameConfig.settings.turnTransitionSeconds ?? 1;
 
 const POINTS = gameConfig.settings.points;
 
@@ -90,6 +95,11 @@ export function createMatchState(
     // assigns a new holder (not by startMatch — the opening turn isn't a "pass").
     turnNotice: null,
     turnNoticeSeq: 0,
+    // Real seconds left in the post-handoff freeze (see TURN_TRANSITION_SECONDS) — while > 0,
+    // tickTimers below holds both globalTimeRemaining and bombTimer still instead of decrementing
+    // them, so nobody's fuse (or the match clock) burns time during the purely cosmetic push
+    // animation. Set by selectNextHolder whenever it actually assigns a new holder.
+    turnTransitionRemaining: 0,
     // Host-only bookkeeping (never included in any network snapshot): which alive non-holders
     // have already solved their sabotage puzzle this turn. Reset whenever a new holder is
     // assigned. Only gates *solving* — throwing an already-banked tomato isn't turn-limited.
@@ -229,11 +239,19 @@ export function startMatch(matchState) {
   matchState.zipStain = null;
   matchState.tomatoDeflect = null;
   matchState._zipSolvedThisTurn = new Set();
+  matchState.turnTransitionRemaining = 0;
 }
 
 // Returns { globalExpired, personalExpired }. No-ops outside the active phase.
 export function tickTimers(matchState, deltaSeconds) {
   if (matchState.phase !== 'active') {
+    return { globalExpired: false, personalExpired: false };
+  }
+
+  // Frozen while the bomb-handoff push animation plays — see turnTransitionRemaining above. Still
+  // ticks itself down so normal ticking resumes automatically once it reaches 0.
+  if (matchState.turnTransitionRemaining > 0) {
+    matchState.turnTransitionRemaining = Math.max(0, matchState.turnTransitionRemaining - deltaSeconds);
     return { globalExpired: false, personalExpired: false };
   }
 
@@ -244,6 +262,22 @@ export function tickTimers(matchState, deltaSeconds) {
     globalExpired: matchState.globalTimeRemaining === 0,
     personalExpired: matchState.bombTimer === 0,
   };
+}
+
+// Read-only lookahead — who would receive the bomb if it passed right now, without actually
+// moving anything. Used to give that player a "you're up next" heads-up the moment the CURRENT
+// handoff happens, one full turn before it's actually their turn. Mirrors selectNextHolder's
+// alive/skip-pass logic but never consumes pendingSkipPass, so it's safe to call speculatively.
+function peekNextHolder(matchState, afterPlayerId) {
+  const order = matchState.players;
+  const currentIndex = order.findIndex((p) => p.id === afterPlayerId);
+  for (let offset = 1; offset <= order.length; offset++) {
+    const candidate = order[(currentIndex + offset) % order.length];
+    if (candidate.status !== 'alive') continue;
+    if (candidate.id === matchState.pendingSkipPass) continue;
+    return candidate;
+  }
+  return null;
 }
 
 // Moves the bomb to the next alive player after afterPlayerId (defaults to the current holder),
@@ -280,6 +314,8 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
     matchState.tomatoDeflect = null;
     matchState._zipSolvedThisTurn = new Set();
 
+    const nextPlayer = peekNextHolder(matchState, candidate.id);
+
     matchState.turnNoticeSeq += 1;
     matchState.turnNotice = {
       seq: matchState.turnNoticeSeq,
@@ -288,7 +324,13 @@ export function selectNextHolder(matchState, afterPlayerId = matchState.bombHold
       fromId: fromPlayer ? fromPlayer.id : null,
       fromName: fromPlayer ? fromPlayer.name : null,
       skipped,
+      // Who's up after this new holder — a full turn's advance notice, not the pass that's
+      // happening right now. Just a hint (see peekNextHolder) since a skip-pass bought in the
+      // meantime could still change it before it's actually their turn.
+      nextId: nextPlayer ? nextPlayer.id : null,
+      nextName: nextPlayer ? nextPlayer.name : null,
     };
+    matchState.turnTransitionRemaining = TURN_TRANSITION_SECONDS;
     return;
   }
 
@@ -457,6 +499,7 @@ export function resetToLobby(matchState) {
   matchState.pendingSkipPass = null;
   matchState.turnNotice = null;
   matchState.turnNoticeSeq = 0;
+  matchState.turnTransitionRemaining = 0;
   matchState.tutorialReady = {};
 }
 
